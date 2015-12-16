@@ -329,8 +329,8 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	}
 
 	sender := fmt.Sprintf("%s <%s@better-github-mail.appspot.com>", senderName, senderUserName)
-	displayHeadCommit := newDisplayCommit(payload.HeadCommit, payload.Pusher, location)
-	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, displayHeadCommit.ShortSHA, displayHeadCommit.Title)
+	subjectCommit := displayCommits[0]
+	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
 	message := &mail.Message{
 		Sender:   sender,
