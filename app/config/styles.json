@@ -6,6 +6,9 @@
     "proportional": {
         "font-family": "Helvetica,Arial,sans-serif"
     },
+    "date": {
+        "color": "#666"
+    },
     "commit": {
         "background": "#e6f1f6",
         "border": "solid 1px #c5d5dd",
@@ -13,6 +16,7 @@
         "font-family": "Consolas,\"Liberation Mono\",Menlo,Courier,monospace",
         "font-size": "11pt",
         "margin-bottom": "1em",
+        "max-width": "900px",
         "title": {
             "margin": "10px",
             "link": {
@@ -29,9 +33,6 @@
             "border-top": "solid 1px #d8e6ec",
             "margin": "0 10px",
             "padding": "10px 0",
-            "date": {
-                "color": "#666"
-            },
             "link": {
                 "float": "right",
                 "line-height": "24px"
@@ -81,6 +82,12 @@
                     }
                 }
             }
+        }
+    },
+    "footer": {
+        "color": "#666",
+        "link": {
+            "color": "#74a1da"
         }
     }
 }

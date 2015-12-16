@@ -35,8 +35,18 @@
         </a>
         committed at
         <span title="{{.DisplayDateTooltip}}"
-           style="{{style "commit.footer.date"}}">{{.DisplayDate}}</span>
+           style="{{style "date"}}">{{.DisplayDate}}</span>
       </span>
     </div>
   </div>
 {{end}}
+
+<div style={{style "proportional" "footer"}}>
+  <a href="{{.Payload.Compare}}" style="{{style "link" "footer.link"}}">
+    {{if eq (len .Commits) 1}}1 commit{{end}}{{if ne (len .Commits) 1}}{{len .Commits}} commits{{end}}</a>
+  pushed to
+  <a href="{{.BranchURL}}" style="{{style "link" "footer.link"}}">{{.BranchName}}</a>
+  at
+  <span title="{{.PushedDisplayDateTooltip}}"
+        style="{{style "date"}}">{{.PushedDisplayDate}}</span>.
+</div>

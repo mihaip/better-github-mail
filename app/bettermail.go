@@ -138,6 +138,25 @@ type WebHookRepository struct {
 	TeamsURL         *string `json:"teams_url,omitempty"`
 }
 
+func safeFormattedDate(date string) string {
+	// Insert zero-width spaces every few characters so that Apple Data
+	// Detectors and Gmail's calendar event dection don't pick up on these
+	// dates.
+	var buffer bytes.Buffer
+	dateLength := len(date)
+	for i := 0; i < dateLength; i += 2 {
+		if i == dateLength-1 {
+			buffer.WriteString(date[i : i+1])
+		} else {
+			buffer.WriteString(date[i : i+2])
+			if date[i] != ' ' && date[i+1] != ' ' && i < dateLength-2 {
+				buffer.WriteString("\u200b")
+			}
+		}
+	}
+	return buffer.String()
+}
+
 type DisplayCommitFileType int
 
 const (
@@ -203,8 +222,8 @@ type DisplayCommit struct {
 }
 
 const (
-	CommitDisplayDateFormat     = "3:04pm"
-	CommitDisplayDateFullFormat = "Monday January 2 3:04pm"
+	DisplayDateFormat     = "3:04pm"
+	DisplayDateFullFormat = "Monday January 2 3:04pm"
 )
 
 func newDisplayCommit(commit *WebHookCommit, sender *github.User, location *time.Location) DisplayCommit {
@@ -252,11 +271,11 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, location *time
 }
 
 func (commit DisplayCommit) DisplayDate() string {
-	return commit.Date.Format(CommitDisplayDateFormat)
+	return safeFormattedDate(commit.Date.Format(DisplayDateFormat))
 }
 
 func (commit DisplayCommit) DisplayDateTooltip() string {
-	return commit.Date.Format(CommitDisplayDateFullFormat)
+	return commit.Date.Format(DisplayDateFullFormat)
 }
 
 func hookHandler(w http.ResponseWriter, r *http.Request) {
@@ -303,9 +322,16 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	for i := range payload.Commits {
 		displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], payload.Sender, location))
 	}
+	branchName := (*payload.Ref)[11:]
+	branchUrl := fmt.Sprintf("https://github.com/%s/tree/%s", *payload.Repo.FullName, branchName)
+	pushedDate := payload.Repo.PushedAt.In(location)
 	var data = map[string]interface{}{
-		"Payload": payload,
-		"Commits": displayCommits,
+		"Payload":                  payload,
+		"Commits":                  displayCommits,
+		"BranchName":               branchName,
+		"BranchURL":                branchUrl,
+		"PushedDisplayDate":        safeFormattedDate(pushedDate.Format(DisplayDateFormat)),
+		"PushedDisplayDateTooltip": pushedDate.Format(DisplayDateFullFormat),
 	}
 	var mailHtml bytes.Buffer
 	if err := templates["push"].Execute(&mailHtml, data); err != nil {
