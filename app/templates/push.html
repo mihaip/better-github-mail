@@ -10,11 +10,11 @@
     <div style="{{style "commit.files"}}">
       {{range .Files }}
         <div style="{{style "commit.files.file"}}">
+          <a href="{{.URL}}"
+             style="{{style "link" "commit.files.file.link"}}">
           <span style="{{style "commit.files.file.type" .Type.Style}}">
             {{.Type.Letter}}
-          </span>
-          <a href="{{.URL}}"
-             style="{{style "link" "commit.files.file.link"}}">{{.Path}}</a>
+          </span>{{.Path}}</a>
         </div>
       {{end}}
     </div>
