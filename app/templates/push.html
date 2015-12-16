@@ -1,22 +1,42 @@
 {{range .Commits }}
   <div style="{{style "commit"}}">
-    <h3 style="{{style "commit.title"}}">{{.Title}}</h3>
+    <h3 style="{{style "commit.title"}}">
+      <a href="{{.URL}}" style="{{style "commit.title.link"}}">{{.Title}}</a>
+    </h3>
     {{if .Message}}
       <pre style="{{style "commit.message"}}">{{.Message}}</pre>
     {{end}}
-    <div style="{{style "commit.footer"}}">
-      <a href="{{.URL}}"
-         style="{{style "link" "commit.footer.link"}}">{{.DisplaySHA}}</a>
-      <i title={{.DisplayDateTooltip}}
-         style="{{style "proportional" "commit.footer.date"}}">{{.DisplayDate}}</i>
-    </div>
+
     <div style="{{style "commit.files"}}">
       {{range .Files }}
-        <div>
+        <div style="{{style "commit.files.file"}}">
+          <span style="{{style "commit.files.file.type" .Type.Style}}">
+            {{.Type.Letter}}
+          </span>
           <a href="{{.URL}}"
-             style="{{style "link" "commit.files.link"}}">{{.Path}}</a>
+             style="{{style "link" "commit.files.file.link"}}">{{.Path}}</a>
         </div>
       {{end}}
+    </div>
+
+    <div style="{{style "commit.footer"}}">
+      <a href="{{.URL}}"
+         style="{{style "link" "commit.footer.link"}}">{{.SHA}}</a>
+
+      <span style="{{style "proportional"}}">
+        <a href="https://github.com/{{.Commiter.Login}}"
+           title="{{.Commiter.Name}}"
+           style="{{style "link" "proportional" "commit.footer.commiter.link"}}">
+          <img src="{{.Commiter.AvatarURL}}"
+               width="24"
+               height="24"
+               border="0"
+              style="{{style "commit.footer.commiter.avatar"}}">{{.Commiter.Login}}
+        </a>
+        committed at
+        <span title="{{.DisplayDateTooltip}}"
+           style="{{style "commit.footer.date"}}">{{.DisplayDate}}</span>
+      </span>
     </div>
   </div>
 {{end}}

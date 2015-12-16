@@ -35,6 +35,7 @@ type PushPayload struct {
 	Forced     *bool              `json:"forced,omitempty"`
 	HeadCommit *WebHookCommit     `json:"head_commit,omitempty"`
 	Pusher     *github.User       `json:"pusher,omitempty"`
+	Sender     *github.User       `json:"sender,omitempty"`
 	Ref        *string            `json:"ref,omitempty"`
 	Repo       *WebHookRepository `json:"repository,omitempty"`
 }
@@ -145,6 +146,33 @@ const (
 	CommitFileModified
 )
 
+func (t DisplayCommitFileType) Style() string {
+	var style string
+	if t == CommitFileAdded {
+		style = "added"
+	} else if t == CommitFileRemoved {
+		style = "removed"
+	} else if t == CommitFileModified {
+		style = "modified"
+	} else {
+		style = "unknown"
+	}
+	return fmt.Sprintf("commit.files.file.type.%s", style)
+}
+
+func (t DisplayCommitFileType) Letter() string {
+	if t == CommitFileAdded {
+		return "+"
+	}
+	if t == CommitFileRemoved {
+		return "-"
+	}
+	if t == CommitFileModified {
+		return "•"
+	}
+	return "?"
+}
+
 type DisplayCommitFile struct {
 	Path string
 	Type DisplayCommitFileType
@@ -157,13 +185,21 @@ func (a DisplayCommitFileByPath) Len() int           { return len(a) }
 func (a DisplayCommitFileByPath) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a DisplayCommitFileByPath) Less(i, j int) bool { return a[i].Path < a[j].Path }
 
+type DisplayCommiter struct {
+	Login     string
+	Name      string
+	AvatarURL string
+}
+
 type DisplayCommit struct {
-	DisplaySHA string
-	URL        string
-	Title      string
-	Message    string
-	Date       time.Time
-	Files      []DisplayCommitFile
+	SHA      string
+	ShortSHA string
+	URL      string
+	Title    string
+	Message  string
+	Date     time.Time
+	Commiter DisplayCommiter
+	Files    []DisplayCommitFile
 }
 
 const (
@@ -171,7 +207,7 @@ const (
 	CommitDisplayDateFullFormat = "Monday January 2 3:04pm"
 )
 
-func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCommit {
+func newDisplayCommit(commit *WebHookCommit, sender *github.User, location *time.Location) DisplayCommit {
 	messagePieces := strings.SplitN(*commit.Message, "\n", 2)
 	title := messagePieces[0]
 	message := ""
@@ -194,13 +230,24 @@ func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCom
 		files[i].URL = fmt.Sprintf("%s#diff-%d", *commit.URL, i)
 	}
 
+	commiter := DisplayCommiter{
+		Login:     *commit.Author.Username,
+		Name:      *commit.Author.Name,
+		AvatarURL: fmt.Sprintf("https://github.com/identicons/%s.png", *commit.Author.Username),
+	}
+	if sender.Login != nil && commiter.Login == *sender.Login && sender.AvatarURL != nil {
+		commiter.AvatarURL = *sender.AvatarURL
+	}
+
 	return DisplayCommit{
-		DisplaySHA: (*commit.ID)[:7],
-		URL:        *commit.URL,
-		Title:      title,
-		Message:    message,
-		Date:       commit.Timestamp.In(location),
-		Files:      files,
+		SHA:      *commit.ID,
+		ShortSHA: (*commit.ID)[:7],
+		URL:      *commit.URL,
+		Title:    title,
+		Message:  message,
+		Date:     commit.Timestamp.In(location),
+		Commiter: commiter,
+		Files:    files,
 	}
 }
 
@@ -254,7 +301,7 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 
 	displayCommits := make([]DisplayCommit, 0)
 	for i := range payload.Commits {
-		displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], location))
+		displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], payload.Sender, location))
 	}
 	var data = map[string]interface{}{
 		"Payload": payload,
@@ -282,8 +329,8 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	}
 
 	sender := fmt.Sprintf("%s <%s@better-github-mail.appspot.com>", senderName, senderUserName)
-	displayHeadCommit := newDisplayCommit(payload.HeadCommit, location)
-	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, displayHeadCommit.DisplaySHA, displayHeadCommit.Title)
+	displayHeadCommit := newDisplayCommit(payload.HeadCommit, payload.Pusher, location)
+	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, displayHeadCommit.ShortSHA, displayHeadCommit.Title)
 
 	message := &mail.Message{
 		Sender:   sender,

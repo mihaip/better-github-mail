@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hook Test Harness</title>
+</head>
+<body>
+
+  <h1>Hook Test Harness</h1>
+
+  {{if .Message}}
+    <h2>Message</h2>
+    <p>
+      <b>Sender:</b> {{.Message.Sender}}<br>
+      <b>To:</b> {{.Message.To}}<br>
+      <b>Subject:</b> {{.Message.Subject}}<br>
+    </p>
+
+    <p>
+      {{html .Message.HTMLBody}}
+    </p>
+  {{end}}
+
+  {{if .MessageErr}}
+    Message Error: {{.MessageErr}}
+  {{end}}
+
+  <form method="POST">
+    <div>
+      <label>
+        Event Type:
+        <select name="event_type">
+          <option value="push">push</option>
+        </select>
+      </label>
+    </div>
+
+    <label>Payload<label>
+    <div>
+      <textarea name="payload" cols="80" rows="30">
+        {{.Payload}}
+      </textarea>
+    </div>
+
+    <input type="submit" value="Submit"/>
+  </form>
+
+</body>
+</html>

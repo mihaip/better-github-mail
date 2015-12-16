@@ -1,31 +1,85 @@
 {
-  "commit": {
-    "background": "#e6f1f6",
-    "border": "solid 1px #c5d5dd",
-    "border-radius": "3px",
-    "container": {
-      "margin": "1em 0"
+    "link": {
+        "text-decoration": "none",
+        "color": "#4078c0"
     },
-    "title": {
-      "padding": "10px",
-      "margin": "0",
-      "z-index": "2"
+    "proportional": {
+        "font-family": "Helvetica,Arial,sans-serif"
     },
-    "message": {
-      "margin": "0",
-      "padding": "0 10px 10px",
-      "white-space": "pre-wrap"
-    },
-    "footer": {
-      "border-top": "solid 1px #d8e6ec",
-      "margin": "0 10px",
-      "padding": "10px 0",
-      "date": {
-        "color": "#666"
-      },
-      "link": {
-        "float": "right"
-      }
+    "commit": {
+        "background": "#e6f1f6",
+        "border": "solid 1px #c5d5dd",
+        "border-radius": "3px",
+        "font-family": "Consolas,\"Liberation Mono\",Menlo,Courier,monospace",
+        "font-size": "11pt",
+        "title": {
+            "padding": "10px",
+            "margin": "0",
+            "link": {
+                "text-decoration": "none",
+                "color": "#000"
+            }
+        },
+        "message": {
+            "margin": "0",
+            "padding": "0 10px 10px",
+            "white-space": "pre-wrap"
+        },
+        "footer": {
+            "border-top": "solid 1px #d8e6ec",
+            "margin": "0 10px",
+            "padding": "10px 0",
+            "date": {
+                "color": "#666"
+            },
+            "link": {
+                "float": "right"
+            },
+            "commiter": {
+                "link": {
+                    "text-decoration": "none"
+                },
+                "avatar": {
+                    "display": "inline-block",
+                    "overflow": "hidden",
+                    "line-height": "1",
+                    "vertical-align": "middle",
+                    "border-radius": "3px",
+                    "margin-right": "3px"
+                }
+            }
+        },
+        "files": {
+            "margin": "0 10px",
+            "padding": "10px 0",
+            "file": {
+                "type": {
+                    "display": "inline-block",
+                    "width": "12px",
+                    "height": "12px",
+                    "line-height": "12px",
+                    "text-align": "center",
+                    "border": "solid 1px",
+                    "border-radius": "2px",
+                    "vertical-align": "middle",
+                    "added": {
+                        "border-color": "#6cc644",
+                        "color": "#6cc644"
+                    },
+                    "removed": {
+                        "border-color": "#bd2c00",
+                        "color": "#bd2c00"
+                    },
+                    "modified": {
+                        "border-color": "#d0b44c",
+                        "color": "#d0b44c"
+                    },
+                    "unknown": {
+                        "border-color": "#ccc",
+                        "color": "#ccc"
+                    }
+                }
+            }
+        }
     }
-  }
 }
