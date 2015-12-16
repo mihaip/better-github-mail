@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -20,7 +21,8 @@ var templates map[string]*Template
 func init() {
 	templates = loadTemplates()
 
-	http.HandleFunc("/hook", handler)
+	http.HandleFunc("/hook", hookHandler)
+	http.HandleFunc("/hook-test-harness", hookTestHarnessHandler)
 }
 
 type PushPayload struct {
@@ -210,37 +212,43 @@ func (commit DisplayCommit) DisplayDateTooltip() string {
 	return commit.Date.Format(CommitDisplayDateFullFormat)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func hookHandler(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	decoder := json.NewDecoder(r.Body)
 	eventType := r.Header.Get("X-Github-Event")
+	message, err := handlePayload(eventType, r.Body, c)
+	if err != nil {
+		c.Errorf("Error %s handling %s payload", err, eventType)
+		http.Error(w, "Error handling payload", http.StatusInternalServerError)
+		return
+	}
+	if message == nil {
+		fmt.Fprint(w, "Unhandled event type: %s", eventType)
+		c.Warningf("Unhandled event type: %s", eventType)
+		return
+	}
+	err = mail.Send(c, message)
+	if err != nil {
+		c.Errorf("Could not send mail: %s", err)
+		http.Error(w, "Could not send mail", http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, "OK")
+}
+
+func handlePayload(eventType string, payloadReader io.Reader, c appengine.Context) (*mail.Message, error) {
+	decoder := json.NewDecoder(payloadReader)
 	if eventType == "push" {
 		var payload PushPayload
 		err := decoder.Decode(&payload)
 		if err != nil {
-			c.Errorf("Error %s parsing push payload", err)
-			http.Error(w, "Invalid push payload", http.StatusBadRequest)
-			return
+			return nil, err
 		}
-		sent, err := handlePushPayload(payload, c)
-		if err != nil {
-			c.Errorf("Error %s handling push payload", err)
-			http.Error(w, "Could not handle push payload", http.StatusInternalServerError)
-			return
-		}
-		if !sent {
-			c.Errorf("Could not send mail")
-			http.Error(w, "Could not send mail", http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprint(w, "OK")
-		return
+		return handlePushPayload(payload, c)
 	}
-	fmt.Fprint(w, "Unhandled event type: %s", eventType)
-	c.Warningf("Unhandled event type: %s", eventType)
+	return nil, nil
 }
 
-func handlePushPayload(payload PushPayload, c appengine.Context) (bool, error) {
+func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message, error) {
 	// TODO: allow location to be customized
 	location, _ := time.LoadLocation("America/Los_Angeles")
 
@@ -254,7 +262,7 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (bool, error) {
 	}
 	var mailHtml bytes.Buffer
 	if err := templates["push"].Execute(&mailHtml, data); err != nil {
-		return false, err
+		return nil, err
 	}
 
 	senderUserName := *payload.Pusher.Name
@@ -283,6 +291,28 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (bool, error) {
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
-	err := mail.Send(c, message)
-	return true, err
+	return message, nil
+}
+
+func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		templates["hook-test-harness"].Execute(w, nil)
+		return
+	}
+	if r.Method == "POST" {
+		eventType := r.FormValue("event_type")
+		payload := r.FormValue("payload")
+		c := appengine.NewContext(r)
+
+		message, err := handlePayload(eventType, strings.NewReader(payload), c)
+		var data = map[string]interface{}{
+			"EventType":  eventType,
+			"Payload":    payload,
+			"Message":    message,
+			"MessageErr": err,
+		}
+		templates["hook-test-harness"].Execute(w, data)
+		return
+	}
+	http.Error(w, "", http.StatusMethodNotAllowed)
 }

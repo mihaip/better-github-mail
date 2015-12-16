@@ -2,6 +2,7 @@ package bettermail
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -16,6 +17,9 @@ type Template struct {
 func loadTemplates() (templates map[string]*Template) {
 	styles := loadStyles()
 	funcMap := template.FuncMap{
+		"html": func(value interface{}) template.HTML {
+			return template.HTML(fmt.Sprint(value))
+		},
 		"style": func(names ...string) (result template.CSS) {
 			for _, name := range names {
 				result += styles[name]
