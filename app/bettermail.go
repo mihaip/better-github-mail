@@ -358,9 +358,14 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	subjectCommit := displayCommits[0]
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
+	recipient := "eng+commits@quip.com"
+	if appengine.IsDevAppServer() {
+		recipient = "mihai@quip.com"
+	}
+
 	message := &mail.Message{
 		Sender:   sender,
-		To:       []string{"mihai@quip.com"},
+		To:       []string{recipient},
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
