@@ -1,89 +1,89 @@
 package bettermail
 
 import (
-    "bytes"
-    "encoding/json"
-    "fmt"
-    "net/http"
-    "sort"
-    "strings"
-    "time"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
 
-    "appengine"
-    "appengine/mail"
+	"appengine"
+	"appengine/mail"
 
-    "github.com/google/go-github/github"
+	"github.com/google/go-github/github"
 )
 
 var templates map[string]*Template
 
 func init() {
-    templates = loadTemplates()
+	templates = loadTemplates()
 
-    http.HandleFunc("/hook", handler)
+	http.HandleFunc("/hook", handler)
 }
 
 type PushPayload struct {
-	After      *string         `json:"after,omitempty"`
-	Before     *string         `json:"before,omitempty"`
-	Commits    []WebHookCommit `json:"commits,omitempty"`
-	Compare    *string         `json:"compare,omitempty"`
-	Created    *bool           `json:"created,omitempty"`
-	Deleted    *bool           `json:"deleted,omitempty"`
-	Forced     *bool           `json:"forced,omitempty"`
-	HeadCommit *WebHookCommit  `json:"head_commit,omitempty"`
-	Pusher     *github.User           `json:"pusher,omitempty"`
-	Ref        *string         `json:"ref,omitempty"`
-	Repo       *WebHookRepository     `json:"repository,omitempty"`
+	After      *string            `json:"after,omitempty"`
+	Before     *string            `json:"before,omitempty"`
+	Commits    []WebHookCommit    `json:"commits,omitempty"`
+	Compare    *string            `json:"compare,omitempty"`
+	Created    *bool              `json:"created,omitempty"`
+	Deleted    *bool              `json:"deleted,omitempty"`
+	Forced     *bool              `json:"forced,omitempty"`
+	HeadCommit *WebHookCommit     `json:"head_commit,omitempty"`
+	Pusher     *github.User       `json:"pusher,omitempty"`
+	Ref        *string            `json:"ref,omitempty"`
+	Repo       *WebHookRepository `json:"repository,omitempty"`
 }
 
 // WebHookCommit represents the commit variant we receive from GitHub in a
 // WebHookPayload.
 type WebHookCommit struct {
-	Added     []string       `json:"added,omitempty"`
+	Added     []string              `json:"added,omitempty"`
 	Author    *github.WebHookAuthor `json:"author,omitempty"`
 	Committer *github.WebHookAuthor `json:"committer,omitempty"`
-	Distinct  *bool          `json:"distinct,omitempty"`
-	URL        *string        `json:"url,omitempty"`
-	ID        *string        `json:"id,omitempty"`
-	Message   *string        `json:"message,omitempty"`
-	Modified  []string       `json:"modified,omitempty"`
-	Removed   []string       `json:"removed,omitempty"`
-	Timestamp *time.Time     `json:"timestamp,omitempty"`
+	Distinct  *bool                 `json:"distinct,omitempty"`
+	URL       *string               `json:"url,omitempty"`
+	ID        *string               `json:"id,omitempty"`
+	Message   *string               `json:"message,omitempty"`
+	Modified  []string              `json:"modified,omitempty"`
+	Removed   []string              `json:"removed,omitempty"`
+	Timestamp *time.Time            `json:"timestamp,omitempty"`
 }
 
 type WebHookRepository struct {
-	ID               *int             `json:"id,omitempty"`
-	Owner            *github.User            `json:"owner,omitempty"`
-	Name             *string          `json:"name,omitempty"`
-	FullName         *string          `json:"full_name,omitempty"`
-	Description      *string          `json:"description,omitempty"`
-	Homepage         *string          `json:"homepage,omitempty"`
-	DefaultBranch    *string          `json:"default_branch,omitempty"`
-	MasterBranch     *string          `json:"master_branch,omitempty"`
-	CreatedAt        *github.Timestamp       `json:"created_at,omitempty"`
-	PushedAt         *github.Timestamp       `json:"pushed_at,omitempty"`
-	UpdatedAt        *github.Timestamp       `json:"updated_at,omitempty"`
-	HTMLURL          *string          `json:"html_url,omitempty"`
-	CloneURL         *string          `json:"clone_url,omitempty"`
-	GitURL           *string          `json:"git_url,omitempty"`
-	MirrorURL        *string          `json:"mirror_url,omitempty"`
-	SSHURL           *string          `json:"ssh_url,omitempty"`
-	SVNURL           *string          `json:"svn_url,omitempty"`
-	Language         *string          `json:"language,omitempty"`
-	Fork             *bool            `json:"fork"`
-	ForksCount       *int             `json:"forks_count,omitempty"`
-	NetworkCount     *int             `json:"network_count,omitempty"`
-	OpenIssuesCount  *int             `json:"open_issues_count,omitempty"`
-	StargazersCount  *int             `json:"stargazers_count,omitempty"`
-	SubscribersCount *int             `json:"subscribers_count,omitempty"`
-	WatchersCount    *int             `json:"watchers_count,omitempty"`
-	Size             *int             `json:"size,omitempty"`
-	AutoInit         *bool            `json:"auto_init,omitempty"`
-	Parent           *github.Repository      `json:"parent,omitempty"`
-	Source           *github.Repository      `json:"source,omitempty"`
-	Organization     *string          `json:"organization,omitempty"`
-	Permissions      *map[string]bool `json:"permissions,omitempty"`
+	ID               *int               `json:"id,omitempty"`
+	Owner            *github.User       `json:"owner,omitempty"`
+	Name             *string            `json:"name,omitempty"`
+	FullName         *string            `json:"full_name,omitempty"`
+	Description      *string            `json:"description,omitempty"`
+	Homepage         *string            `json:"homepage,omitempty"`
+	DefaultBranch    *string            `json:"default_branch,omitempty"`
+	MasterBranch     *string            `json:"master_branch,omitempty"`
+	CreatedAt        *github.Timestamp  `json:"created_at,omitempty"`
+	PushedAt         *github.Timestamp  `json:"pushed_at,omitempty"`
+	UpdatedAt        *github.Timestamp  `json:"updated_at,omitempty"`
+	HTMLURL          *string            `json:"html_url,omitempty"`
+	CloneURL         *string            `json:"clone_url,omitempty"`
+	GitURL           *string            `json:"git_url,omitempty"`
+	MirrorURL        *string            `json:"mirror_url,omitempty"`
+	SSHURL           *string            `json:"ssh_url,omitempty"`
+	SVNURL           *string            `json:"svn_url,omitempty"`
+	Language         *string            `json:"language,omitempty"`
+	Fork             *bool              `json:"fork"`
+	ForksCount       *int               `json:"forks_count,omitempty"`
+	NetworkCount     *int               `json:"network_count,omitempty"`
+	OpenIssuesCount  *int               `json:"open_issues_count,omitempty"`
+	StargazersCount  *int               `json:"stargazers_count,omitempty"`
+	SubscribersCount *int               `json:"subscribers_count,omitempty"`
+	WatchersCount    *int               `json:"watchers_count,omitempty"`
+	Size             *int               `json:"size,omitempty"`
+	AutoInit         *bool              `json:"auto_init,omitempty"`
+	Parent           *github.Repository `json:"parent,omitempty"`
+	Source           *github.Repository `json:"source,omitempty"`
+	Organization     *string            `json:"organization,omitempty"`
+	Permissions      *map[string]bool   `json:"permissions,omitempty"`
 
 	// Only provided when using RepositoriesService.Get while in preview
 	License *github.License `json:"license,omitempty"`
@@ -144,9 +144,9 @@ const (
 )
 
 type DisplayCommitFile struct {
-    Path string
-    Type DisplayCommitFileType
-    URL string
+	Path string
+	Type DisplayCommitFileType
+	URL  string
 }
 
 type DisplayCommitFileByPath []DisplayCommitFile
@@ -160,13 +160,13 @@ type DisplayCommit struct {
 	URL        string
 	Title      string
 	Message    string
-	Date   time.Time
-	Files   []DisplayCommitFile
+	Date       time.Time
+	Files      []DisplayCommitFile
 }
 
 const (
-	CommitDisplayDateFormat      = "3:04pm"
-	CommitDisplayDateFullFormat  = "Monday January 2 3:04pm"
+	CommitDisplayDateFormat     = "3:04pm"
+	CommitDisplayDateFullFormat = "Monday January 2 3:04pm"
 )
 
 func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCommit {
@@ -178,18 +178,18 @@ func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCom
 	}
 
 	files := make([]DisplayCommitFile, 0)
-	for _, path := range(commit.Added) {
-	    files = append(files, DisplayCommitFile{Path: path, Type: CommitFileAdded})
+	for _, path := range commit.Added {
+		files = append(files, DisplayCommitFile{Path: path, Type: CommitFileAdded})
 	}
-	for _, path := range(commit.Removed) {
-	    files = append(files, DisplayCommitFile{Path: path, Type: CommitFileRemoved})
+	for _, path := range commit.Removed {
+		files = append(files, DisplayCommitFile{Path: path, Type: CommitFileRemoved})
 	}
-	for _, path := range(commit.Modified) {
-	    files = append(files, DisplayCommitFile{Path: path, Type: CommitFileModified})
+	for _, path := range commit.Modified {
+		files = append(files, DisplayCommitFile{Path: path, Type: CommitFileModified})
 	}
 	sort.Sort(DisplayCommitFileByPath(files))
-	for i := range(files) {
-	    files[i].URL = fmt.Sprintf("%s#diff-%d", *commit.URL, i)
+	for i := range files {
+		files[i].URL = fmt.Sprintf("%s#diff-%d", *commit.URL, i)
 	}
 
 	return DisplayCommit{
@@ -197,8 +197,8 @@ func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCom
 		URL:        *commit.URL,
 		Title:      title,
 		Message:    message,
-		Date:   commit.Timestamp.In(location),
-		Files: files,
+		Date:       commit.Timestamp.In(location),
+		Files:      files,
 	}
 }
 
@@ -207,47 +207,47 @@ func (commit DisplayCommit) DisplayDate() string {
 }
 
 func (commit DisplayCommit) DisplayDateTooltip() string {
-    return commit.Date.Format(CommitDisplayDateFullFormat)
+	return commit.Date.Format(CommitDisplayDateFullFormat)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-    c := appengine.NewContext(r)
-    decoder := json.NewDecoder(r.Body)
-    eventType := r.Header.Get("X-Github-Event")
-    if eventType == "push" {
-        var payload PushPayload
-        err := decoder.Decode(&payload)
-        if err != nil {
-            c.Errorf("Error %s parsing push payload", err)
-            http.Error(w, "Invalid push payload", http.StatusBadRequest)
-            return
-        }
-        sent, err := handlePushPayload(payload, c)
-        if err != nil {
-            c.Errorf("Error %s handling push payload", err)
-            http.Error(w, "Could not handle push payload", http.StatusInternalServerError)
-            return
-        }
-        if !sent {
-            c.Errorf("Could not send mail")
-            http.Error(w, "Could not send mail", http.StatusInternalServerError)
-            return
-        }
-        fmt.Fprint(w, "OK")
-        return
-    }
-    fmt.Fprint(w, "Unhandled event type: %s", eventType)
-    c.Warningf("Unhandled event type: %s", eventType)
+	c := appengine.NewContext(r)
+	decoder := json.NewDecoder(r.Body)
+	eventType := r.Header.Get("X-Github-Event")
+	if eventType == "push" {
+		var payload PushPayload
+		err := decoder.Decode(&payload)
+		if err != nil {
+			c.Errorf("Error %s parsing push payload", err)
+			http.Error(w, "Invalid push payload", http.StatusBadRequest)
+			return
+		}
+		sent, err := handlePushPayload(payload, c)
+		if err != nil {
+			c.Errorf("Error %s handling push payload", err)
+			http.Error(w, "Could not handle push payload", http.StatusInternalServerError)
+			return
+		}
+		if !sent {
+			c.Errorf("Could not send mail")
+			http.Error(w, "Could not send mail", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, "OK")
+		return
+	}
+	fmt.Fprint(w, "Unhandled event type: %s", eventType)
+	c.Warningf("Unhandled event type: %s", eventType)
 }
 
 func handlePushPayload(payload PushPayload, c appengine.Context) (bool, error) {
-    // TODO: allow location to be customized
-    location, _ := time.LoadLocation("America/Los_Angeles")
+	// TODO: allow location to be customized
+	location, _ := time.LoadLocation("America/Los_Angeles")
 
-    displayCommits := make([]DisplayCommit, 0)
-    for i := range payload.Commits {
-        displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], location))
-    }
+	displayCommits := make([]DisplayCommit, 0)
+	for i := range payload.Commits {
+		displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], location))
+	}
 	var data = map[string]interface{}{
 		"Payload": payload,
 		"Commits": displayCommits,
@@ -257,24 +257,24 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (bool, error) {
 		return false, err
 	}
 
-    senderUserName := *payload.Pusher.Name
-    senderName := senderUserName
-    // We don't have the display name in the pusher, but usually it's one of the
-    // commiters, so get it from there (without having to do any extra API
-    // requests)
-    for _, commit := range payload.Commits {
-        if *commit.Author.Username == senderUserName {
-            senderName = *commit.Author.Name
-            break
-        }
-        if *commit.Committer.Username == senderUserName {
-            senderName = *commit.Committer.Name
-            break
-        }
-    }
+	senderUserName := *payload.Pusher.Name
+	senderName := senderUserName
+	// We don't have the display name in the pusher, but usually it's one of the
+	// commiters, so get it from there (without having to do any extra API
+	// requests)
+	for _, commit := range payload.Commits {
+		if *commit.Author.Username == senderUserName {
+			senderName = *commit.Author.Name
+			break
+		}
+		if *commit.Committer.Username == senderUserName {
+			senderName = *commit.Committer.Name
+			break
+		}
+	}
 
-    sender := fmt.Sprintf("%s <%s@better-github-mail.appspot.com>", senderName, senderUserName)
-    displayHeadCommit := newDisplayCommit(payload.HeadCommit, location)
+	sender := fmt.Sprintf("%s <%s@better-github-mail.appspot.com>", senderName, senderUserName)
+	displayHeadCommit := newDisplayCommit(payload.HeadCommit, location)
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, displayHeadCommit.DisplaySHA, displayHeadCommit.Title)
 
 	message := &mail.Message{
