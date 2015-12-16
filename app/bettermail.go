@@ -5,6 +5,7 @@ import (
     "encoding/json"
     "fmt"
     "net/http"
+    "sort"
     "strings"
     "time"
 
@@ -134,20 +135,38 @@ type WebHookRepository struct {
 	TeamsURL         *string `json:"teams_url,omitempty"`
 }
 
+type DisplayCommitFileType int
+
+const (
+	CommitFileAdded DisplayCommitFileType = iota
+	CommitFileRemoved
+	CommitFileModified
+)
+
+type DisplayCommitFile struct {
+    Path string
+    Type DisplayCommitFileType
+    URL string
+}
+
+type DisplayCommitFileByPath []DisplayCommitFile
+
+func (a DisplayCommitFileByPath) Len() int           { return len(a) }
+func (a DisplayCommitFileByPath) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a DisplayCommitFileByPath) Less(i, j int) bool { return a[i].Path < a[j].Path }
+
 type DisplayCommit struct {
 	DisplaySHA string
 	URL        string
 	Title      string
 	Message    string
 	Date   time.Time
+	Files   []DisplayCommitFile
 }
 
 const (
 	CommitDisplayDateFormat      = "3:04pm"
 	CommitDisplayDateFullFormat  = "Monday January 2 3:04pm"
-	DigestDisplayDateFormat      = "January 2, 2006"
-	DigestDisplayShortDateFormat = "January 2"
-	DigestDisplayDayOfWeekFormat = "Monday"
 )
 
 func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCommit {
@@ -157,12 +176,29 @@ func newDisplayCommit(commit *WebHookCommit, location *time.Location) DisplayCom
 	if len(messagePieces) == 2 {
 		message = messagePieces[1]
 	}
+
+	files := make([]DisplayCommitFile, 0)
+	for _, path := range(commit.Added) {
+	    files = append(files, DisplayCommitFile{Path: path, Type: CommitFileAdded})
+	}
+	for _, path := range(commit.Removed) {
+	    files = append(files, DisplayCommitFile{Path: path, Type: CommitFileRemoved})
+	}
+	for _, path := range(commit.Modified) {
+	    files = append(files, DisplayCommitFile{Path: path, Type: CommitFileModified})
+	}
+	sort.Sort(DisplayCommitFileByPath(files))
+	for i := range(files) {
+	    files[i].URL = fmt.Sprintf("%s#diff-%d", *commit.URL, i)
+	}
+
 	return DisplayCommit{
 		DisplaySHA: (*commit.ID)[:7],
 		URL:        *commit.URL,
 		Title:      title,
 		Message:    message,
 		Date:   commit.Timestamp.In(location),
+		Files: files,
 	}
 }
 

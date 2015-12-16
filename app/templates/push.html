@@ -10,5 +10,13 @@
       <i title={{.DisplayDateTooltip}}
          style="{{style "proportional" "commit.footer.date"}}">{{.DisplayDate}}</i>
     </div>
+    <div style="{{style "commit.files"}}">
+      {{range .Files }}
+        <div>
+          <a href="{{.URL}}"
+             style="{{style "link" "commit.files.link"}}">{{.Path}}</a>
+        </div>
+      {{end}}
+    <div>
   <div>
 {{end}}
