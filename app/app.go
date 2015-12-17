@@ -88,6 +88,6 @@ func loadStyles() (result map[string]template.CSS) {
 	return
 }
 
-func getStyle(name string) (string) {
-    return string(styles[name])
+func getStyle(name string) string {
+	return string(styles[name])
 }
