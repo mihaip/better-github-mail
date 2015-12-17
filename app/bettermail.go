@@ -258,6 +258,8 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 		})
 		if err != nil {
 			c.Warningf("Could not do markdown rendering, got error %s", err)
+			messageHtml = fmt.Sprintf("<div style=\"%s\">%s</div>",
+				getStyle("commit.message.block"), messageHtml)
 		} else {
 			// Use our link style
 			messageHtmlRendered = strings.Replace(
