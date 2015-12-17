@@ -111,7 +111,7 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 	}
 	// Mimic title turncation done by the GitHub web UI
 	if len(title) > 80 {
-		titleTail := title[80:]
+		titleTail := "…" + title[80:]
 		if len(message) > 0 {
 			message = titleTail + "\n" + message
 		} else {
