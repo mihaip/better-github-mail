@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"sort"
@@ -12,6 +13,7 @@ import (
 
 	"appengine"
 	"appengine/mail"
+	"appengine/urlfetch"
 
 	"github.com/google/go-github/github"
 )
@@ -211,14 +213,14 @@ type DisplayCommiter struct {
 }
 
 type DisplayCommit struct {
-	SHA      string
-	ShortSHA string
-	URL      string
-	Title    string
-	Message  string
-	Date     time.Time
-	Commiter DisplayCommiter
-	Files    []DisplayCommitFile
+	SHA         string
+	ShortSHA    string
+	URL         string
+	Title       string
+	MessageHTML string
+	Date        time.Time
+	Commiter    DisplayCommiter
+	Files       []DisplayCommitFile
 }
 
 const (
@@ -226,12 +228,43 @@ const (
 	DisplayDateFullFormat = "Monday January 2 3:04pm"
 )
 
-func newDisplayCommit(commit *WebHookCommit, sender *github.User, location *time.Location) DisplayCommit {
+func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookRepository, location *time.Location, c appengine.Context) DisplayCommit {
 	messagePieces := strings.SplitN(*commit.Message, "\n", 2)
 	title := messagePieces[0]
 	message := ""
 	if len(messagePieces) == 2 {
 		message = messagePieces[1]
+	}
+	// Mimic title turncation done by the GitHub web UI
+	if len(title) > 70 {
+		titleTail := title[70:]
+		if len(message) > 0 {
+			message = titleTail + "\n" + message
+		} else {
+			message = titleTail
+		}
+		title = title[:70] + "…"
+	}
+
+	messageHtml := ""
+	if len(message) > 0 {
+		// The Markdown endpoint does not escape <, >, etc. so we need to do it
+		// ourselves.
+		messageHtml = html.EscapeString(message)
+		client := github.NewClient(urlfetch.Client(c))
+		messageHtmlRendered, _, err := client.Markdown(messageHtml, &github.MarkdownOptions{
+			Mode:    "gfm",
+			Context: *repo.FullName,
+		})
+		if err != nil {
+			c.Warningf("Could not do markdown rendering, got error %s", err)
+		} else {
+			messageHtml = strings.Replace(
+				messageHtmlRendered,
+				"<a ",
+				"<a style=\"text-decoration:none;color:#4078c0\" ",
+				-1)
+		}
 	}
 
 	files := make([]DisplayCommitFile, 0)
@@ -259,14 +292,14 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, location *time
 	}
 
 	return DisplayCommit{
-		SHA:      *commit.ID,
-		ShortSHA: (*commit.ID)[:7],
-		URL:      *commit.URL,
-		Title:    title,
-		Message:  message,
-		Date:     commit.Timestamp.In(location),
-		Commiter: commiter,
-		Files:    files,
+		SHA:         *commit.ID,
+		ShortSHA:    (*commit.ID)[:7],
+		URL:         *commit.URL,
+		Title:       title,
+		MessageHTML: messageHtml,
+		Date:        commit.Timestamp.In(location),
+		Commiter:    commiter,
+		Files:       files,
 	}
 }
 
@@ -320,7 +353,7 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 
 	displayCommits := make([]DisplayCommit, 0)
 	for i := range payload.Commits {
-		displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], payload.Sender, location))
+		displayCommits = append(displayCommits, newDisplayCommit(&payload.Commits[i], payload.Sender, payload.Repo, location, c))
 	}
 	branchName := (*payload.Ref)[11:]
 	branchUrl := fmt.Sprintf("https://github.com/%s/tree/%s", *payload.Repo.FullName, branchName)

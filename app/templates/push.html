@@ -3,8 +3,8 @@
     <h3 style="{{style "commit.title"}}">
       <a href="{{.URL}}" style="{{style "commit.title.link"}}">{{.Title}}</a>
     </h3>
-    {{if .Message}}
-      <pre style="{{style "commit.message"}}">{{.Message}}</pre>
+    {{if .MessageHTML}}
+      <pre style="{{style "commit.message"}}">{{html .MessageHTML}}</pre>
     {{end}}
 
     <div style="{{style "commit.files"}}">
