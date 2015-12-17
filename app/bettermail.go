@@ -69,6 +69,12 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	branchName := (*payload.Ref)[11:]
 	branchUrl := fmt.Sprintf("https://github.com/%s/tree/%s", *payload.Repo.FullName, branchName)
 	pushedDate := payload.Repo.PushedAt.In(location)
+	// Last link is a link so that the GitHub Gmail extension
+	// (https://github.com/muan/github-gmail) will open the diff view.
+	extensionUrl := displayCommits[0].URL
+	if len(displayCommits) > 1 {
+		extensionUrl = *payload.Compare
+	}
 	var data = map[string]interface{}{
 		"Payload":                  payload,
 		"Commits":                  displayCommits,
@@ -76,6 +82,7 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 		"BranchURL":                branchUrl,
 		"PushedDisplayDate":        safeFormattedDate(pushedDate.Format(DisplayDateFormat)),
 		"PushedDisplayDateTooltip": pushedDate.Format(DisplayDateFullFormat),
+		"ExtensionURL":             extensionUrl,
 	}
 	var mailHtml bytes.Buffer
 	if err := templates["push"].Execute(&mailHtml, data); err != nil {
