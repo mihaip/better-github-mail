@@ -14,8 +14,10 @@ type Template struct {
 	*template.Template
 }
 
+var styles map[string]template.CSS
+
 func loadTemplates() (templates map[string]*Template) {
-	styles := loadStyles()
+	styles = loadStyles()
 	funcMap := template.FuncMap{
 		"html": func(value interface{}) template.HTML {
 			return template.HTML(fmt.Sprint(value))
@@ -84,4 +86,8 @@ func loadStyles() (result map[string]template.CSS) {
 	}
 	parse("", stylesJson.(map[string]interface{}), nil)
 	return
+}
+
+func getStyle(name string) (string) {
+    return string(styles[name])
 }

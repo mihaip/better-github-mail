@@ -262,7 +262,7 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 			messageHtml = strings.Replace(
 				messageHtmlRendered,
 				"<a ",
-				"<a style=\"text-decoration:none;color:#4078c0\" ",
+				fmt.Sprintf("<a style=\"%s\" ", getStyle("link")),
 				-1)
 		}
 	}
