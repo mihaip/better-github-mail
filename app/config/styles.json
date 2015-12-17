@@ -90,6 +90,10 @@
         "color": "#666",
         "link": {
             "color": "#74a1da"
+        },
+        "extension-link": {
+            "text-decoration": "none",
+            "color": "#fff"
         }
     }
 }

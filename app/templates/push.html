@@ -49,4 +49,6 @@
   at
   <span title="{{.PushedDisplayDateTooltip}}"
         style="{{style "date"}}">{{.PushedDisplayDate}}</span>.
+  {{/* Last link is a compare link so that the GitHub Gmail extension (https://github.com/muan/github-gmail) will open the diff view. */}}
+  <a href="{{.Payload.Compare}}" style="{{style "footer.extension-link"}}">{{"\u200b"}}</a>
 </div>
