@@ -236,14 +236,14 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 		message = messagePieces[1]
 	}
 	// Mimic title turncation done by the GitHub web UI
-	if len(title) > 70 {
-		titleTail := title[70:]
+	if len(title) > 80 {
+		titleTail := title[80:]
 		if len(message) > 0 {
 			message = titleTail + "\n" + message
 		} else {
 			message = titleTail
 		}
-		title = title[:70] + "…"
+		title = title[:80] + "…"
 	}
 
 	messageHtml := ""
@@ -259,11 +259,30 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 		if err != nil {
 			c.Warningf("Could not do markdown rendering, got error %s", err)
 		} else {
-			messageHtml = strings.Replace(
+			// Use our link style
+			messageHtmlRendered = strings.Replace(
 				messageHtmlRendered,
 				"<a ",
 				fmt.Sprintf("<a style=\"%s\" ", getStyle("link")),
 				-1)
+			// Respect whitespace within blocks...
+			messageHtmlRendered = strings.Replace(
+				messageHtmlRendered,
+				"<p>",
+				fmt.Sprintf("<p style=\"%s\">", getStyle("commit.message.block")),
+				-1)
+			messageHtmlRendered = strings.Replace(
+				messageHtmlRendered,
+				"<li>",
+				fmt.Sprintf("<li style=\"%s\">", getStyle("commit.message.block")),
+				-1)
+			// ...but avoid doubling of newlines.
+			messageHtmlRendered = strings.Replace(
+				messageHtmlRendered,
+				"<br>\n",
+				"<br>",
+				-1)
+			messageHtml = messageHtmlRendered
 		}
 	}
 

@@ -27,7 +27,9 @@
         "message": {
             "margin": "0 0 10px 0",
             "padding": "0 10px",
-            "white-space": "pre-wrap"
+            "block": {
+                "white-space": "pre-wrap"
+            }
         },
         "footer": {
             "border-top": "solid 1px #d8e6ec",

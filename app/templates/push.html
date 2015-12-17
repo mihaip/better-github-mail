@@ -4,7 +4,7 @@
       <a href="{{.URL}}" style="{{style "commit.title.link"}}">{{.Title}}</a>
     </h3>
     {{if .MessageHTML}}
-      <pre style="{{style "commit.message"}}">{{html .MessageHTML}}</pre>
+      <div style="{{style "commit.message"}}">{{html .MessageHTML}}</div>
     {{end}}
 
     <div style="{{style "commit.files"}}">
