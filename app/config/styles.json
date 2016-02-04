@@ -6,6 +6,9 @@
     "proportional": {
         "font-family": "Helvetica,Arial,sans-serif"
     },
+    "monospace": {
+        "font-family": "Consolas,\"Liberation Mono\",Menlo,Courier,monospace"
+    },
     "date": {
         "color": "#666"
     },
@@ -35,14 +38,12 @@
             "border-top": "solid 1px #d8e6ec",
             "margin": "0 10px",
             "padding": "10px 0",
-            "link": {
+            "sha": {
+                "color": "#444",
                 "float": "right",
                 "line-height": "24px"
             },
             "commiter": {
-                "link": {
-                    "text-decoration": "none"
-                },
                 "avatar": {
                     "display": "inline-block",
                     "overflow": "hidden",

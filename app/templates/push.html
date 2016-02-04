@@ -20,20 +20,21 @@
     </div>
 
     <div style="{{style "commit.footer"}}">
-      <a href="{{.URL}}"
-         style="{{style "link" "commit.footer.link"}}">{{.SHA}}</a>
+      <span style="{{style "commit.footer.sha"}}">{{.SHA}}</span>
 
       <span style="{{style "proportional"}}">
         <a href="https://github.com/{{.Commiter.Login}}"
            title="{{.Commiter.Name}}"
-           style="{{style "link" "proportional" "commit.footer.commiter.link"}}">
+           style="{{style "link"}}">
           <img src="{{.Commiter.AvatarURL}}"
                width="24"
                height="24"
                border="0"
               style="{{style "commit.footer.commiter.avatar"}}">{{.Commiter.Login}}
         </a>
-        committed at
+        committed
+        <a href="{{.URL}}" style="{{style "link" "monospace"}}">{{.ShortSHA}}</a>
+        at
         <span title="{{.DisplayDateTooltip}}"
            style="{{style "date"}}">{{.DisplayDate}}</span>
       </span>
