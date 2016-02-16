@@ -42,6 +42,7 @@ func hookHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not send mail", http.StatusInternalServerError)
 		return
 	}
+	c.Infof("Sent mail to %s", message.To[0])
 	fmt.Fprint(w, "OK")
 }
 
@@ -117,6 +118,7 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	message := &mail.Message{
 		Sender:   sender,
 		To:       []string{recipient},
+		Bcc:	  []string{"mihai@quip.com"},
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
