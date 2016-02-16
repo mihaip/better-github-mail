@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Test Mail Send</title>
+</head>
+<body>
+
+  <h1>Test Mail Send</h1>
+
+  {{if .SendErr}}
+    Send Error: {{.MessageErr}}
+  {{end}}
+
+  <form method="POST">
+    <div>
+      <label>
+        Subject:
+        <input type="text" name="subject" value="{{.Message.Subject}}" size="80">
+      </label>
+    </div>
+    <div>
+      <label>
+        Sender:
+        <input type="text" name="sender" value="{{.Message.Sender}}" size="80">
+      </label>
+    </div>
+
+    <label>HTML BODY<label>
+    <div>
+      <textarea name="html_body" cols="80" rows="30">{{.Message.HTMLBody}}</textarea>
+    </div>
+
+    <input type="submit" value="Submit"/>
+  </form>
+
+</body>
+</html>

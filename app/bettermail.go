@@ -21,6 +21,7 @@ func init() {
 
 	http.HandleFunc("/hook", hookHandler)
 	http.HandleFunc("/hook-test-harness", hookTestHarnessHandler)
+	http.HandleFunc("/test-mail-send", testMailSendHandler)
 	http.HandleFunc("/_ah/bounce", bounceHandler)
 }
 
@@ -157,4 +158,28 @@ func bounceHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		c.Warningf("Bounce: <unreadable body>")
 	}
+}
+
+func testMailSendHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		templates["test-mail-send"].Execute(w, nil)
+		return
+	}
+	if r.Method == "POST" {
+		c := appengine.NewContext(r)
+		message := &mail.Message{
+			Sender:   r.FormValue("sender"),
+			To:       []string{"mihai@quip.com"},
+			Subject:  r.FormValue("subject"),
+			HTMLBody: r.FormValue("html_body"),
+		}
+		err := mail.Send(c, message)
+		var data = map[string]interface{}{
+			"Message": message,
+			"SendErr": err,
+		}
+		templates["test-mail-send"].Execute(w, data)
+		return
+	}
+	http.Error(w, "", http.StatusMethodNotAllowed)
 }
