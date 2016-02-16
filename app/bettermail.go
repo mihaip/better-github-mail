@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ func init() {
 
 	http.HandleFunc("/hook", hookHandler)
 	http.HandleFunc("/hook-test-harness", hookTestHarnessHandler)
+	http.HandleFunc("/_ah/bounce", bounceHandler)
 }
 
 func hookHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +120,7 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	message := &mail.Message{
 		Sender:   sender,
 		To:       []string{recipient},
-		Bcc:	  []string{"mihai@quip.com"},
+		Bcc:      []string{"mihai@quip.com"},
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
@@ -146,4 +148,13 @@ func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Error(w, "", http.StatusMethodNotAllowed)
+}
+
+func bounceHandler(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	if b, err := ioutil.ReadAll(r.Body); err == nil {
+		c.Warningf("Bounce: %s", string(b))
+	} else {
+		c.Warningf("Bounce: <unreadable body>")
+	}
 }
