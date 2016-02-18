@@ -121,7 +121,6 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	message := &mail.Message{
 		Sender:   sender,
 		To:       []string{recipient},
-		Bcc:      []string{"mihai@quip.com"},
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
