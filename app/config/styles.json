@@ -85,6 +85,38 @@
                     }
                 }
             }
+        },
+        "comment": {
+            "background": "#e6f1f6",
+            "border": "solid 1px #c5d5dd",
+            "border-radius": "3px",
+            "font-family": "Consolas,\"Liberation Mono\",Menlo,Courier,monospace",
+            "font-size": "11pt",
+            "margin-bottom": "1em",
+            "max-width": "900px",
+            "title": {
+                "margin": "10px",
+                "link": {
+                    "text-decoration": "none",
+                    "color": "#000"
+                }
+            },
+            "sender": {
+                "avatar": {
+                    "display": "inline-block",
+                    "overflow": "hidden",
+                    "line-height": "1",
+                    "vertical-align": "middle",
+                    "border-radius": "3px",
+                    "margin-right": "3px"
+                }
+            },
+            "body": {
+                "background": "white",
+                "margin": "0",
+                "padding": "10px",
+                "white-space": "pre-wrap"
+            }
         }
     },
     "footer": {

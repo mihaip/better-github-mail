@@ -102,10 +102,9 @@ const (
 	DisplayDateFullFormat = "Monday January 2 3:04pm"
 )
 
-func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookRepository, location *time.Location, c appengine.Context) DisplayCommit {
-	messagePieces := strings.SplitN(*commit.Message, "\n", 2)
+func getTitleAndMessageFromCommitMessage(message string) (string, string) {
+	messagePieces := strings.SplitN(message, "\n", 2)
 	title := messagePieces[0]
-	message := ""
 	if len(messagePieces) == 2 {
 		message = messagePieces[1]
 	}
@@ -119,7 +118,11 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 		}
 		title = title[:80] + "…"
 	}
+    return title, message
+}
 
+func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookRepository, location *time.Location, c appengine.Context) DisplayCommit {
+    title, message := getTitleAndMessageFromCommitMessage(*commit.Message)
 	messageHtml := ""
 	if len(message) > 0 {
 		// The Markdown endpoint does not escape <, >, etc. so we need to do it

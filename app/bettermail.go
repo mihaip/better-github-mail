@@ -12,6 +12,7 @@ import (
 
 	"appengine"
 	"appengine/mail"
+	"appengine/urlfetch"
 )
 
 var templates map[string]*Template
@@ -58,6 +59,13 @@ func handlePayload(eventType string, payloadReader io.Reader, c appengine.Contex
 			return nil, err
 		}
 		return handlePushPayload(payload, c)
+	} else if eventType == "commit-comment" {
+		var payload CommitCommentPayload
+		err := decoder.Decode(&payload)
+		if err != nil {
+			return nil, err
+		}
+		return handleCommitCommentPayload(payload, c)
 	}
 	return nil, nil
 }
@@ -112,6 +120,72 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 	sender := fmt.Sprintf("%s <%s@better-github-mail.appspotmail.com>", senderName, senderUserName)
 	subjectCommit := displayCommits[0]
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
+
+	recipient := "eng+commits@quip.com"
+	if appengine.IsDevAppServer() {
+		recipient = "mihai@quip.com"
+	}
+
+	message := &mail.Message{
+		Sender:   sender,
+		To:       []string{recipient},
+		Subject:  subject,
+		HTMLBody: mailHtml.String(),
+	}
+	return message, nil
+}
+
+func fetchCommit(payload CommitCommentPayload, commit *ApiCommit, c appengine.Context) error {
+	commitSHA := *payload.Comment.CommitID
+	url := strings.Replace(*payload.Repo.CommitsURL, "{/sha}", "/" + commitSHA, 1)
+
+	client := urlfetch.Client(c)
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return json.NewDecoder(resp.Body).Decode(commit)
+}
+
+func handleCommitCommentPayload(payload CommitCommentPayload, c appengine.Context) (*mail.Message, error) {
+	var commit ApiCommit
+	title := ""
+	err := fetchCommit(payload, &commit, c)
+	if err != nil {
+		c.Infof("Error fetching commit = %v\n", err)
+	} else {
+		title, _ = getTitleAndMessageFromCommitMessage(*commit.Commit.Message)
+	}
+
+	// TODO: allow location to be customized
+	location, _ := time.LoadLocation("America/Los_Angeles")
+	updatedDate := payload.Comment.UpdatedAt.In(location)
+
+	commitShortSHA := (*payload.Comment.CommitID)[:7]
+
+	var data = map[string]interface{}{
+		"Payload":                  payload,
+		"Comment":                  payload.Comment,
+		"Sender":                   payload.Sender,
+		"Repo":                     payload.Repo,
+		"ShortSHA":                 commitShortSHA,
+		"Body":                     *payload.Comment.Body,
+		"CommitURL":                commit.HTML_URL,
+		"UpdatedDisplayDate":       safeFormattedDate(updatedDate.Format(DisplayDateFormat)),
+	}
+
+	var mailHtml bytes.Buffer
+	if err := templates["commit-comment"].Execute(&mailHtml, data); err != nil {
+		return nil, err
+	}
+
+	senderUserName := *payload.Sender.Login
+	senderName := senderUserName
+
+	sender := fmt.Sprintf("%s <%s@better-github-mail.appspotmail.com>", senderName, senderUserName)
+	subject := fmt.Sprintf("Re: [%s] %s: %s", *payload.Repo.FullName, commitShortSHA, title)
+	c.Infof("subject = %s\n", subject)
 
 	recipient := "eng+commits@quip.com"
 	if appengine.IsDevAppServer() {
