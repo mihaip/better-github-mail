@@ -121,48 +121,53 @@ func getTitleAndMessageFromCommitMessage(message string) (string, string) {
 	return title, message
 }
 
+func renderMessageMarkdown(message string, repo *WebHookRepository, c context.Context) string {
+	// The Markdown endpoint does not escape <, >, etc. so we need to do it
+	// ourselves.
+	messageHtml := html.EscapeString(message)
+	client := github.NewClient(urlfetch.Client(c))
+	messageHtmlRendered, _, err := client.Markdown(messageHtml, &github.MarkdownOptions{
+		Mode:    "gfm",
+		Context: *repo.FullName,
+	})
+	if err != nil {
+		log.Warningf(c, "Could not do markdown rendering, got error %s", err)
+		messageHtml = fmt.Sprintf("<div style=\"%s\">%s</div>",
+			getStyle("commit.message.block"), messageHtml)
+	} else {
+		// Use our link style
+		messageHtmlRendered = strings.Replace(
+			messageHtmlRendered,
+			"<a ",
+			fmt.Sprintf("<a style=\"%s\" ", getStyle("link")),
+			-1)
+		// Respect whitespace within blocks...
+		messageHtmlRendered = strings.Replace(
+			messageHtmlRendered,
+			"<p>",
+			fmt.Sprintf("<p style=\"%s\">", getStyle("commit.message.block")),
+			-1)
+		messageHtmlRendered = strings.Replace(
+			messageHtmlRendered,
+			"<li>",
+			fmt.Sprintf("<li style=\"%s\">", getStyle("commit.message.block")),
+			-1)
+		// ...but avoid doubling of newlines.
+		messageHtmlRendered = strings.Replace(
+			messageHtmlRendered,
+			"<br>\n",
+			"<br>",
+			-1)
+		messageHtml = messageHtmlRendered
+	}
+	return messageHtml
+}
+
 func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookRepository, location *time.Location, c context.Context) DisplayCommit {
 	title, message := getTitleAndMessageFromCommitMessage(*commit.Message)
 	messageHtml := ""
 	if len(message) > 0 {
-		// The Markdown endpoint does not escape <, >, etc. so we need to do it
-		// ourselves.
-		messageHtml = html.EscapeString(message)
-		client := github.NewClient(urlfetch.Client(c))
-		messageHtmlRendered, _, err := client.Markdown(messageHtml, &github.MarkdownOptions{
-			Mode:    "gfm",
-			Context: *repo.FullName,
-		})
-		if err != nil {
-			log.Warningf(c, "Could not do markdown rendering, got error %s", err)
-			messageHtml = fmt.Sprintf("<div style=\"%s\">%s</div>",
-				getStyle("commit.message.block"), messageHtml)
-		} else {
-			// Use our link style
-			messageHtmlRendered = strings.Replace(
-				messageHtmlRendered,
-				"<a ",
-				fmt.Sprintf("<a style=\"%s\" ", getStyle("link")),
-				-1)
-			// Respect whitespace within blocks...
-			messageHtmlRendered = strings.Replace(
-				messageHtmlRendered,
-				"<p>",
-				fmt.Sprintf("<p style=\"%s\">", getStyle("commit.message.block")),
-				-1)
-			messageHtmlRendered = strings.Replace(
-				messageHtmlRendered,
-				"<li>",
-				fmt.Sprintf("<li style=\"%s\">", getStyle("commit.message.block")),
-				-1)
-			// ...but avoid doubling of newlines.
-			messageHtmlRendered = strings.Replace(
-				messageHtmlRendered,
-				"<br>\n",
-				"<br>",
-				-1)
-			messageHtml = messageHtmlRendered
-		}
+		messageHtml = renderMessageMarkdown(message, repo, c)
 	}
 
 	files := make([]DisplayCommitFile, 0)
@@ -208,3 +213,4 @@ func (commit DisplayCommit) DisplayDate() string {
 func (commit DisplayCommit) DisplayDateTooltip() string {
 	return commit.Date.Format(DisplayDateFullFormat)
 }
+

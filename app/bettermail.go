@@ -174,13 +174,18 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 	commitShortSHA := commitSHA[:7]
 	commitURL := *payload.Repo.URL + "/commit/" + commitSHA
 
+	body := *payload.Comment.Body
+	if len(body) > 0 {
+	    body = renderMessageMarkdown(body, payload.Repo, c)
+	}
+
 	var data = map[string]interface{}{
 		"Payload":                  payload,
 		"Comment":                  payload.Comment,
 		"Sender":                   payload.Sender,
 		"Repo":                     payload.Repo,
 		"ShortSHA":                 commitShortSHA,
-		"Body":                     *payload.Comment.Body,
+		"Body":                     body,
 		"CommitURL":                commitURL,
 		"UpdatedDisplayDate":       safeFormattedDate(updatedDate.Format(DisplayDateFormat)),
 	}
