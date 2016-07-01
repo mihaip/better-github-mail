@@ -10,9 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"appengine"
-	"appengine/mail"
-	"appengine/urlfetch"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/mail"
+	"google.golang.org/appengine/datastore"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine/log"
 )
 
 var templates map[string]*Template
@@ -24,6 +26,35 @@ func init() {
 	http.HandleFunc("/hook-test-harness", hookTestHarnessHandler)
 	http.HandleFunc("/test-mail-send", testMailSendHandler)
 	http.HandleFunc("/_ah/bounce", bounceHandler)
+	http.HandleFunc("/test-subject", testSubjectHandler)
+}
+
+type EmailThread struct {
+	CommitSHA string
+	Subject string
+}
+
+func createThread(sha string, subject string, c context.Context) {
+	thread := EmailThread {
+	    CommitSHA: sha,
+	    Subject: subject,
+	}
+	key := datastore.NewIncompleteKey(c, "EmailThread", nil)
+	_, err := datastore.Put(c, key, &thread)
+	if err != nil {
+		log.Errorf(c, "Error creating thread %s", err)
+	}
+	log.Infof(c, "Created thread: %v", thread)
+}
+
+func getSubjectForCommit(sha string, c context.Context) string {
+	q := datastore.NewQuery("EmailThread").Filter("CommitSHA =", sha).Limit(1)
+	threads := make([]EmailThread, 0, 1)
+	if _, err := q.GetAll(c, &threads); err != nil || len(threads) < 1 {
+	    log.Infof(c, "No thread found for SHA = %s", sha)
+	    return ""
+	}
+	return threads[0].Subject
 }
 
 func hookHandler(w http.ResponseWriter, r *http.Request) {
@@ -31,26 +62,26 @@ func hookHandler(w http.ResponseWriter, r *http.Request) {
 	eventType := r.Header.Get("X-Github-Event")
 	message, err := handlePayload(eventType, r.Body, c)
 	if err != nil {
-		c.Errorf("Error %s handling %s payload", err, eventType)
+		log.Errorf(c, "Error %s handling %s payload", err, eventType)
 		http.Error(w, "Error handling payload", http.StatusInternalServerError)
 		return
 	}
 	if message == nil {
 		fmt.Fprint(w, "Unhandled event type: %s", eventType)
-		c.Warningf("Unhandled event type: %s", eventType)
+		log.Warningf(c, "Unhandled event type: %s", eventType)
 		return
 	}
 	err = mail.Send(c, message)
 	if err != nil {
-		c.Errorf("Could not send mail: %s", err)
+		log.Errorf(c, "Could not send mail: %s", err)
 		http.Error(w, "Could not send mail", http.StatusInternalServerError)
 		return
 	}
-	c.Infof("Sent mail to %s", message.To[0])
+	log.Infof(c, "Sent mail to %s", message.To[0])
 	fmt.Fprint(w, "OK")
 }
 
-func handlePayload(eventType string, payloadReader io.Reader, c appengine.Context) (*mail.Message, error) {
+func handlePayload(eventType string, payloadReader io.Reader, c context.Context) (*mail.Message, error) {
 	decoder := json.NewDecoder(payloadReader)
 	if eventType == "push" {
 		var payload PushPayload
@@ -59,7 +90,7 @@ func handlePayload(eventType string, payloadReader io.Reader, c appengine.Contex
 			return nil, err
 		}
 		return handlePushPayload(payload, c)
-	} else if eventType == "commit-comment" {
+	} else if eventType == "commit_comment" {
 		var payload CommitCommentPayload
 		err := decoder.Decode(&payload)
 		if err != nil {
@@ -70,7 +101,7 @@ func handlePayload(eventType string, payloadReader io.Reader, c appengine.Contex
 	return nil, nil
 }
 
-func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message, error) {
+func handlePushPayload(payload PushPayload, c context.Context) (*mail.Message, error) {
 	// TODO: allow location to be customized
 	location, _ := time.LoadLocation("America/Los_Angeles")
 
@@ -117,52 +148,31 @@ func handlePushPayload(payload PushPayload, c appengine.Context) (*mail.Message,
 		}
 	}
 
-	sender := fmt.Sprintf("%s <%s@better-github-mail.appspotmail.com>", senderName, senderUserName)
+	sender := fmt.Sprintf("%s <%s@%s.appspotmail.com>", senderName, senderUserName, appengine.AppID(c))
 	subjectCommit := displayCommits[0]
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
-	recipient := "eng+commits@quip.com"
-	if appengine.IsDevAppServer() {
-		recipient = "mihai@quip.com"
+	for _, commit := range displayCommits {
+	    createThread(commit.SHA, subject, c)
 	}
 
 	message := &mail.Message{
 		Sender:   sender,
-		To:       []string{recipient},
+		To:       []string{getRecipient()},
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
 	return message, nil
 }
 
-func fetchCommit(payload CommitCommentPayload, commit *ApiCommit, c appengine.Context) error {
-	commitSHA := *payload.Comment.CommitID
-	url := strings.Replace(*payload.Repo.CommitsURL, "{/sha}", "/" + commitSHA, 1)
-
-	client := urlfetch.Client(c)
-	resp, err := client.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return json.NewDecoder(resp.Body).Decode(commit)
-}
-
-func handleCommitCommentPayload(payload CommitCommentPayload, c appengine.Context) (*mail.Message, error) {
-	var commit ApiCommit
-	title := ""
-	err := fetchCommit(payload, &commit, c)
-	if err != nil {
-		c.Infof("Error fetching commit = %v\n", err)
-	} else {
-		title, _ = getTitleAndMessageFromCommitMessage(*commit.Commit.Message)
-	}
-
+func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context) (*mail.Message, error) {
 	// TODO: allow location to be customized
 	location, _ := time.LoadLocation("America/Los_Angeles")
 	updatedDate := payload.Comment.UpdatedAt.In(location)
 
-	commitShortSHA := (*payload.Comment.CommitID)[:7]
+	commitSHA := *payload.Comment.CommitID
+	commitShortSHA := commitSHA[:7]
+	commitURL := *payload.Repo.URL + "/commit/" + commitSHA
 
 	var data = map[string]interface{}{
 		"Payload":                  payload,
@@ -171,7 +181,7 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c appengine.Contex
 		"Repo":                     payload.Repo,
 		"ShortSHA":                 commitShortSHA,
 		"Body":                     *payload.Comment.Body,
-		"CommitURL":                commit.HTML_URL,
+		"CommitURL":                commitURL,
 		"UpdatedDisplayDate":       safeFormattedDate(updatedDate.Format(DisplayDateFormat)),
 	}
 
@@ -183,22 +193,26 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c appengine.Contex
 	senderUserName := *payload.Sender.Login
 	senderName := senderUserName
 
-	sender := fmt.Sprintf("%s <%s@better-github-mail.appspotmail.com>", senderName, senderUserName)
-	subject := fmt.Sprintf("Re: [%s] %s: %s", *payload.Repo.FullName, commitShortSHA, title)
-	c.Infof("subject = %s\n", subject)
-
-	recipient := "eng+commits@quip.com"
-	if appengine.IsDevAppServer() {
-		recipient = "mihai@quip.com"
+	sender := fmt.Sprintf("%s <%s@%s.appspotmail.com>", senderName, senderUserName, appengine.AppID(c))
+	subject := getSubjectForCommit(commitSHA, c)
+	if subject == "" {
+		subject = fmt.Sprintf("[%s] %s", *payload.Repo.FullName, commitShortSHA)
 	}
 
 	message := &mail.Message{
 		Sender:   sender,
-		To:       []string{recipient},
+		To:       []string{getRecipient()},
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
 	return message, nil
+}
+
+func getRecipient() string {
+	if appengine.IsDevAppServer() {
+		return "mihai@quip.com"
+	}
+	return "shrey@quip.com"
 }
 
 func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
@@ -227,10 +241,26 @@ func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
 func bounceHandler(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	if b, err := ioutil.ReadAll(r.Body); err == nil {
-		c.Warningf("Bounce: %s", string(b))
+		log.Warningf(c, "Bounce: %s", string(b))
 	} else {
-		c.Warningf("Bounce: <unreadable body>")
+		log.Warningf(c, "Bounce: <unreadable body>")
 	}
+}
+
+func testSubjectHandler(w http.ResponseWriter, r *http.Request) {
+	if !appengine.IsDevAppServer() {
+	    http.Error(w, "", http.StatusMethodNotAllowed)
+	    return
+	}
+	values := r.URL.Query()
+	sha, ok := values["sha"]
+	if !ok || len(sha) < 1 {
+	    http.Error(w, "Need to specify sha param", http.StatusInternalServerError)
+	    return
+	}
+	c := appengine.NewContext(r)
+	subject := getSubjectForCommit(sha[0], c)
+	fmt.Fprintf(w, "%s\n", subject)
 }
 
 func testMailSendHandler(w http.ResponseWriter, r *http.Request) {

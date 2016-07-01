@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"appengine"
-	"appengine/urlfetch"
-
 	"github.com/google/go-github/github"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine/urlfetch"
+	"google.golang.org/appengine/log"
 )
 
 func safeFormattedDate(date string) string {
@@ -118,11 +118,11 @@ func getTitleAndMessageFromCommitMessage(message string) (string, string) {
 		}
 		title = title[:80] + "…"
 	}
-    return title, message
+	return title, message
 }
 
-func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookRepository, location *time.Location, c appengine.Context) DisplayCommit {
-    title, message := getTitleAndMessageFromCommitMessage(*commit.Message)
+func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookRepository, location *time.Location, c context.Context) DisplayCommit {
+	title, message := getTitleAndMessageFromCommitMessage(*commit.Message)
 	messageHtml := ""
 	if len(message) > 0 {
 		// The Markdown endpoint does not escape <, >, etc. so we need to do it
@@ -134,7 +134,7 @@ func newDisplayCommit(commit *WebHookCommit, sender *github.User, repo *WebHookR
 			Context: *repo.FullName,
 		})
 		if err != nil {
-			c.Warningf("Could not do markdown rendering, got error %s", err)
+			log.Warningf(c, "Could not do markdown rendering, got error %s", err)
 			messageHtml = fmt.Sprintf("<div style=\"%s\">%s</div>",
 				getStyle("commit.message.block"), messageHtml)
 		} else {
