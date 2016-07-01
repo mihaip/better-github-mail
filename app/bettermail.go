@@ -30,8 +30,8 @@ func init() {
 }
 
 type EmailThread struct {
-	CommitSHA string
-	Subject string
+	CommitSHA string    `datastore:",noindex"`
+	Subject string      `datastore:",noindex"`
 }
 
 func createThread(sha string, subject string, c context.Context) {
@@ -39,22 +39,24 @@ func createThread(sha string, subject string, c context.Context) {
 	    CommitSHA: sha,
 	    Subject: subject,
 	}
-	key := datastore.NewIncompleteKey(c, "EmailThread", nil)
+	key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
 	_, err := datastore.Put(c, key, &thread)
 	if err != nil {
-		log.Errorf(c, "Error creating thread %s", err)
-	}
-	log.Infof(c, "Created thread: %v", thread)
+        log.Errorf(c, "Error creating thread: %s", err)
+	} else {
+        log.Infof(c, "Created thread: %v", thread)
+    }
 }
 
 func getSubjectForCommit(sha string, c context.Context) string {
-	q := datastore.NewQuery("EmailThread").Filter("CommitSHA =", sha).Limit(1)
-	threads := make([]EmailThread, 0, 1)
-	if _, err := q.GetAll(c, &threads); err != nil || len(threads) < 1 {
+    thread := new(EmailThread)
+    key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
+	err := datastore.Get(c, key, thread)
+	if err != nil {
 	    log.Infof(c, "No thread found for SHA = %s", sha)
 	    return ""
 	}
-	return threads[0].Subject
+	return thread.Subject
 }
 
 func hookHandler(w http.ResponseWriter, r *http.Request) {
