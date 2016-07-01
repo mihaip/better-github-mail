@@ -219,7 +219,7 @@ func getRecipient() string {
 	if appengine.IsDevAppServer() {
 		return "mihai@quip.com"
 	}
-	return "shrey@quip.com"
+	return "eng+commits@quip.com"
 }
 
 func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
