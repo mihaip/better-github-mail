@@ -206,6 +206,9 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 	if subject == "" {
 		subject = fmt.Sprintf("[%s] %s", *payload.Repo.FullName, commitShortSHA)
 	}
+	// We don't control the message ID, but hopefully subject-basic threading
+	// wil work.
+	subject = "Re: " + subject
 
 	message := &mail.Message{
 		Sender:   sender,
