@@ -10,10 +10,10 @@
           style="{{style "commit.comment.sender.avatar"}}"/>{{.Payload.Sender.Login}}
     </a>
     commented on
-    <a href="{{.CommitURL}}" style="{{style "link"}}">{{.ShortSHA}}</a> at <a href="{{.Comment.HTML_URL}}" style="{{style "link"}}">{{.Comment.Path}}#L{{.Comment.Line}}</a>:
+    <a href="{{.CommitURL}}" style="{{style "link"}}">{{.ShortSHA}}</a>{{if .Comment.Path}} at <a href="{{.Comment.HTML_URL}}" style="{{style "link"}}">{{.Comment.Path}}#L{{.Comment.Line}}</a>{{end}}:
   </div>
   <div style="{{style "commit.comment.body"}}">{{html .Body}}</div>
 </div>
 <div style={{style "proportional" "footer"}}>
-    Comment {{.Payload.Action}} at <span style="{{style "date"}}">{{.UpdatedDisplayDate}}</span>.
+    Comment {{.Payload.Action}} at <a href="{{.Comment.HTML_URL}}" style="{{style "link" "footer.link"}}">{{.UpdatedDisplayDate}}</a>.
 </div>
