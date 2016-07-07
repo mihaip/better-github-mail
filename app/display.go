@@ -107,6 +107,7 @@ const (
 func getTitleAndMessageFromCommitMessage(message string) (string, string) {
 	messagePieces := strings.SplitN(message, "\n", 2)
 	title := messagePieces[0]
+	message = ""
 	if len(messagePieces) == 2 {
 		message = messagePieces[1]
 	}
