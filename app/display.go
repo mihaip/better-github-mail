@@ -215,4 +215,3 @@ func (commit DisplayCommit) DisplayDate() string {
 func (commit DisplayCommit) DisplayDateTooltip() string {
 	return commit.Date.Format(DisplayDateFullFormat)
 }
-
