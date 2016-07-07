@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/google/go-github/github"
+
 	"golang.org/x/net/context"
-	"google.golang.org/appengine/urlfetch"
+
 	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/urlfetch"
 )
 
 func safeFormattedDate(date string) string {
@@ -213,4 +215,3 @@ func (commit DisplayCommit) DisplayDate() string {
 func (commit DisplayCommit) DisplayDateTooltip() string {
 	return commit.Date.Format(DisplayDateFullFormat)
 }
-
