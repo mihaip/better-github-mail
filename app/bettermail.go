@@ -175,7 +175,7 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 
 	commitSHA := *payload.Comment.CommitID
 	commitShortSHA := commitSHA[:7]
-	commitURL := *payload.Repo.URL + "/commit/" + commitSHA
+	commitURL := *payload.Repo.HTMLURL + "/commit/" + commitSHA
 
 	body := *payload.Comment.Body
 	if len(body) > 0 {
