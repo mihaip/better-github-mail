@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/mail"
-	"google.golang.org/appengine/datastore"
 	"golang.org/x/net/context"
+
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/mail"
 )
 
 var templates map[string]*Template
@@ -30,31 +31,31 @@ func init() {
 }
 
 type EmailThread struct {
-	CommitSHA string    `datastore:",noindex"`
-	Subject string      `datastore:",noindex"`
+	CommitSHA string `datastore:",noindex"`
+	Subject   string `datastore:",noindex"`
 }
 
 func createThread(sha string, subject string, c context.Context) {
-	thread := EmailThread {
-	    CommitSHA: sha,
-	    Subject: subject,
+	thread := EmailThread{
+		CommitSHA: sha,
+		Subject:   subject,
 	}
 	key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
 	_, err := datastore.Put(c, key, &thread)
 	if err != nil {
-        log.Errorf(c, "Error creating thread: %s", err)
+		log.Errorf(c, "Error creating thread: %s", err)
 	} else {
-        log.Infof(c, "Created thread: %v", thread)
-    }
+		log.Infof(c, "Created thread: %v", thread)
+	}
 }
 
 func getSubjectForCommit(sha string, c context.Context) string {
-    thread := new(EmailThread)
-    key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
+	thread := new(EmailThread)
+	key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
 	err := datastore.Get(c, key, thread)
 	if err != nil {
-	    log.Infof(c, "No thread found for SHA = %s", sha)
-	    return ""
+		log.Infof(c, "No thread found for SHA = %s", sha)
+		return ""
 	}
 	return thread.Subject
 }
@@ -155,7 +156,7 @@ func handlePushPayload(payload PushPayload, c context.Context) (*mail.Message, e
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
 	for _, commit := range displayCommits {
-	    createThread(commit.SHA, subject, c)
+		createThread(commit.SHA, subject, c)
 	}
 
 	message := &mail.Message{
@@ -178,18 +179,18 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 
 	body := *payload.Comment.Body
 	if len(body) > 0 {
-	    body = renderMessageMarkdown(body, payload.Repo, c)
+		body = renderMessageMarkdown(body, payload.Repo, c)
 	}
 
 	var data = map[string]interface{}{
-		"Payload":                  payload,
-		"Comment":                  payload.Comment,
-		"Sender":                   payload.Sender,
-		"Repo":                     payload.Repo,
-		"ShortSHA":                 commitShortSHA,
-		"Body":                     body,
-		"CommitURL":                commitURL,
-		"UpdatedDisplayDate":       safeFormattedDate(updatedDate.Format(DisplayDateFormat)),
+		"Payload":            payload,
+		"Comment":            payload.Comment,
+		"Sender":             payload.Sender,
+		"Repo":               payload.Repo,
+		"ShortSHA":           commitShortSHA,
+		"Body":               body,
+		"CommitURL":          commitURL,
+		"UpdatedDisplayDate": safeFormattedDate(updatedDate.Format(DisplayDateFormat)),
 	}
 
 	var mailHtml bytes.Buffer
@@ -256,14 +257,14 @@ func bounceHandler(w http.ResponseWriter, r *http.Request) {
 
 func testSubjectHandler(w http.ResponseWriter, r *http.Request) {
 	if !appengine.IsDevAppServer() {
-	    http.Error(w, "", http.StatusMethodNotAllowed)
-	    return
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
 	}
 	values := r.URL.Query()
 	sha, ok := values["sha"]
 	if !ok || len(sha) < 1 {
-	    http.Error(w, "Need to specify sha param", http.StatusInternalServerError)
-	    return
+		http.Error(w, "Need to specify sha param", http.StatusInternalServerError)
+		return
 	}
 	c := appengine.NewContext(r)
 	subject := getSubjectForCommit(sha[0], c)

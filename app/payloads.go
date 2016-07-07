@@ -22,10 +22,10 @@ type PushPayload struct {
 }
 
 type CommitCommentPayload struct {
-	Action     *string               `json:"action,omitempty"`
-	Comment    *WebHookCommitComment `json:"comment,omitempty"`
-	Repo       *WebHookRepository    `json:"repository,omitempty"`
-	Sender     *github.User          `json:"sender,omitempty"`
+	Action  *string               `json:"action,omitempty"`
+	Comment *WebHookCommitComment `json:"comment,omitempty"`
+	Repo    *WebHookRepository    `json:"repository,omitempty"`
+	Sender  *github.User          `json:"sender,omitempty"`
 }
 
 // WebHookCommit represents the commit variant we receive from GitHub in a
@@ -44,17 +44,17 @@ type WebHookCommit struct {
 }
 
 type WebHookCommitComment struct {
-	ID        *int                  `json:"id,omitempty"`
-	User      *github.User          `json:"user,omitempty"`
-	URL       *string               `json:"url,omitempty"`
-	HTML_URL  *string               `json:"html_url,omitempty"`
-	CommitID  *string               `json:"commit_id,omitempty"`
-	Body      *string               `json:"body,omitempty"`
-	CreatedAt *time.Time            `json:"created_at,omitempty"`
-	UpdatedAt *time.Time            `json:"updated_at,omitempty"`
-	Position  *int                  `json:"position,omitempty"`
-	Line      *int                  `json:"line,omitempty"`
-	Path      *string               `json:"path,omitempty"`
+	ID        *int         `json:"id,omitempty"`
+	User      *github.User `json:"user,omitempty"`
+	URL       *string      `json:"url,omitempty"`
+	HTML_URL  *string      `json:"html_url,omitempty"`
+	CommitID  *string      `json:"commit_id,omitempty"`
+	Body      *string      `json:"body,omitempty"`
+	CreatedAt *time.Time   `json:"created_at,omitempty"`
+	UpdatedAt *time.Time   `json:"updated_at,omitempty"`
+	Position  *int         `json:"position,omitempty"`
+	Line      *int         `json:"line,omitempty"`
+	Path      *string      `json:"path,omitempty"`
 }
 
 type WebHookRepository struct {
@@ -140,8 +140,8 @@ type WebHookRepository struct {
 	TeamsURL         *string `json:"teams_url,omitempty"`
 }
 
-// Represents the payload received from the /commits API call 
+// Represents the payload received from the /commits API call
 type ApiCommit struct {
-	Commit           *WebHookCommit    `json:"commit,omitempty"`
-	HTML_URL         *string           `json:"html_url,omitempty"`
+	Commit   *WebHookCommit `json:"commit,omitempty"`
+	HTML_URL *string        `json:"html_url,omitempty"`
 }

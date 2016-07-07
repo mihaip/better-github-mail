@@ -9,7 +9,7 @@ It's currently running at [http://better-github-mail.appspot.com/](http://better
 
 ## Running Locally
 
-  1. [install the Go App Engine SDK](https://developers.google.com/appengine/downloads#Google_App_Engine_SDK_for_Go).
+  1. [Install the Go App Engine SDK](https://developers.google.com/appengine/downloads#Google_App_Engine_SDK_for_Go).
   2. Make sure that `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION` is set to `python`.
   3. Install the Go library for the GitHub API via `go get github.com/google/go-github/github`
   4. Run: `dev_appserver.py --enable_sendmail=yes app`
