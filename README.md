@@ -11,7 +11,14 @@ It's currently running at [http://better-github-mail.appspot.com/](http://better
 
   1. [Install the Go App Engine SDK](https://developers.google.com/appengine/downloads#Google_App_Engine_SDK_for_Go).
   2. Make sure that `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION` is set to `python`.
-  3. Install the Go library for the GitHub API via `go get github.com/google/go-github/github`
+  3. Install the following Go libraries:
+
+    App Engine: `go get google.golang.org/appengine`
+
+    GitHub API: `go get github.com/google/go-github/github`
+
+    Mailgun: `github.com/mailgun/mailgun-go`
+
   4. Run: `dev_appserver.py --enable_sendmail=yes app`
 
 The server will then be running at [http://localhost:8080/](http://localhost:8080/), with the hook registered on the `/hook` path. Using [ngrok](https://ngrok.com/) you can generate a publicly accessible URL to use in the repository's service hook settings.
