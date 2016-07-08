@@ -1,0 +1,6 @@
+{
+	"Domain": "YOUR_DOMAIN_NAME",
+	"APIKey": "YOUR_MAILGUN_API_KEY",
+	"PublicKey": "YOUR_PUBLIC_KEY",
+	"Recipient": "REPLACE_ME"
+}
