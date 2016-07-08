@@ -12,6 +12,10 @@
     Send Error: {{.MessageErr}}
   {{end}}
 
+  {{if .Id}}
+    Mail sent with ID: {{.Id}}
+  {{end}}
+
   <form method="POST">
     <div>
       <label>
@@ -21,8 +25,8 @@
     </div>
     <div>
       <label>
-        Sender:
-        <input type="text" name="sender" value="{{.Message.Sender}}" size="80">
+        Sender Name:
+        <input type="text" name="sender" value="{{.Message.SenderName}}" size="80">
       </label>
     </div>
 

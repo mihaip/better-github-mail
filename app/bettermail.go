@@ -6,21 +6,34 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	log_ "log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/mailgun/mailgun-go"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
-	"google.golang.org/appengine/mail"
+	"google.golang.org/appengine/urlfetch"
 )
 
 var templates map[string]*Template
 
+type MailgunConfig struct {
+	Domain    string
+	APIKey    string
+	PublicKey string
+	Recipient string
+}
+
+var config MailgunConfig
+
 func init() {
+	initConfig()
 	templates = loadTemplates()
 
 	http.HandleFunc("/hook", hookHandler)
@@ -28,6 +41,22 @@ func init() {
 	http.HandleFunc("/test-mail-send", testMailSendHandler)
 	http.HandleFunc("/_ah/bounce", bounceHandler)
 	http.HandleFunc("/test-subject", testSubjectHandler)
+}
+
+func initConfig() {
+	path := "config/mailgun"
+	if appengine.IsDevAppServer() {
+		path = path + "-dev"
+	}
+	path += ".json"
+	configBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		log_.Panicf("Could not read config from %s: %s", path, err.Error())
+	}
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		log_.Panicf("Could not parse config %s: %s", configBytes, err.Error())
+	}
 }
 
 type EmailThread struct {
@@ -63,28 +92,60 @@ func getSubjectForCommit(sha string, c context.Context) string {
 func hookHandler(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	eventType := r.Header.Get("X-Github-Event")
-	message, err := handlePayload(eventType, r.Body, c)
+	email, err := handlePayload(eventType, r.Body, c)
 	if err != nil {
 		log.Errorf(c, "Error %s handling %s payload", err, eventType)
 		http.Error(w, "Error handling payload", http.StatusInternalServerError)
 		return
 	}
-	if message == nil {
+	if email == nil {
 		fmt.Fprint(w, "Unhandled event type: %s", eventType)
 		log.Warningf(c, "Unhandled event type: %s", eventType)
 		return
 	}
-	err = mail.Send(c, message)
+	msg, id, err := sendEmail(email, c)
 	if err != nil {
-		log.Errorf(c, "Could not send mail: %s", err)
+		log.Errorf(c, "Could not send mail: %s %s", err, msg)
 		http.Error(w, "Could not send mail", http.StatusInternalServerError)
 		return
 	}
-	log.Infof(c, "Sent mail to %s", message.To[0])
+	log.Infof(c, "Sent message id=%s", id)
 	fmt.Fprint(w, "OK")
 }
 
-func handlePayload(eventType string, payloadReader io.Reader, c context.Context) (*mail.Message, error) {
+type Email struct {
+	SenderName string
+	SenderUserName string
+	Subject string
+	HTMLBody string
+}
+
+func sendEmail(email* Email, c context.Context) (msg string, id string, err error) {
+	httpc := urlfetch.Client(c)
+	mg := mailgun.NewMailgun(
+		config.Domain,
+		config.APIKey,
+		config.PublicKey,
+	)
+	mg.SetClient(httpc)
+	sender := fmt.Sprintf("%s <%s@%s>", email.SenderName, email.SenderUserName, config.Domain)
+	message := mg.NewMessage(
+		sender,
+		email.Subject,
+		email.HTMLBody,
+		config.Recipient,
+	)
+	message.SetHtml(email.HTMLBody)
+	msg, id, err = mg.Send(message)
+	if err != nil {
+		log.Errorf(c, "Failed to send message: %v, ID %v, %+v", err, id, msg)
+	} else {
+		log.Infof(c, "Sent message: %s", id)
+	}
+	return msg, id, err
+}
+
+func handlePayload(eventType string, payloadReader io.Reader, c context.Context) (*Email, error) {
 	decoder := json.NewDecoder(payloadReader)
 	if eventType == "push" {
 		var payload PushPayload
@@ -104,7 +165,7 @@ func handlePayload(eventType string, payloadReader io.Reader, c context.Context)
 	return nil, nil
 }
 
-func handlePushPayload(payload PushPayload, c context.Context) (*mail.Message, error) {
+func handlePushPayload(payload PushPayload, c context.Context) (*Email, error) {
 	// TODO: allow location to be customized
 	location, _ := time.LoadLocation("America/Los_Angeles")
 
@@ -151,7 +212,6 @@ func handlePushPayload(payload PushPayload, c context.Context) (*mail.Message, e
 		}
 	}
 
-	sender := fmt.Sprintf("%s <%s@%s.appspotmail.com>", senderName, senderUserName, appengine.AppID(c))
 	subjectCommit := displayCommits[0]
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
@@ -159,16 +219,16 @@ func handlePushPayload(payload PushPayload, c context.Context) (*mail.Message, e
 		createThread(commit.SHA, subject, c)
 	}
 
-	message := &mail.Message{
-		Sender:   sender,
-		To:       []string{getRecipient()},
+	message := &Email{
+		SenderName: senderName,
+		SenderUserName: senderUserName,
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
 	return message, nil
 }
 
-func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context) (*mail.Message, error) {
+func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context) (*Email, error) {
 	// TODO: allow location to be customized
 	location, _ := time.LoadLocation("America/Los_Angeles")
 	updatedDate := payload.Comment.UpdatedAt.In(location)
@@ -201,7 +261,6 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 	senderUserName := *payload.Sender.Login
 	senderName := senderUserName
 
-	sender := fmt.Sprintf("%s <%s@%s.appspotmail.com>", senderName, senderUserName, appengine.AppID(c))
 	subject := getSubjectForCommit(commitSHA, c)
 	if subject == "" {
 		subject = fmt.Sprintf("[%s] %s", *payload.Repo.FullName, commitShortSHA)
@@ -210,20 +269,13 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 	// wil work.
 	subject = "Re: " + subject
 
-	message := &mail.Message{
-		Sender:   sender,
-		To:       []string{getRecipient()},
-		Subject:  subject,
+	message := &Email{
+		SenderName: senderName,
+		SenderUserName: senderUserName,
+		Subject: subject,
 		HTMLBody: mailHtml.String(),
 	}
 	return message, nil
-}
-
-func getRecipient() string {
-	if appengine.IsDevAppServer() {
-		return "mihai@quip.com"
-	}
-	return "eng+commits@quip.com"
 }
 
 func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
@@ -281,16 +333,17 @@ func testMailSendHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "POST" {
 		c := appengine.NewContext(r)
-		message := &mail.Message{
-			Sender:   r.FormValue("sender"),
-			To:       []string{"mihai@quip.com"},
+		email := &Email{
+			SenderName:   r.FormValue("sender"),
+			SenderUserName:   r.FormValue("sender"),
 			Subject:  r.FormValue("subject"),
 			HTMLBody: r.FormValue("html_body"),
 		}
-		err := mail.Send(c, message)
+		_, id, err := sendEmail(email, c)
 		var data = map[string]interface{}{
-			"Message": message,
+			"Message": email,
 			"SendErr": err,
+			"Id": id,
 		}
 		templates["test-mail-send"].Execute(w, data)
 		return
