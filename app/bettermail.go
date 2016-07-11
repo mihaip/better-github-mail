@@ -285,9 +285,10 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 		SenderUserName: senderUserName,
 		Subject: subject,
 		HTMLBody: mailHtml.String(),
-		Headers: map [string]string {
-			"In-Reply-To": messageId,
-		},
+		Headers: make(map [string]string),
+	}
+	if len(messageId) > 0 {
+		message.Headers["In-Reply-To"] = messageId
 	}
 	return message, nil
 }
