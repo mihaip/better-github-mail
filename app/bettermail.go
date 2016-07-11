@@ -40,7 +40,7 @@ func init() {
 	http.HandleFunc("/hook-test-harness", hookTestHarnessHandler)
 	http.HandleFunc("/test-mail-send", testMailSendHandler)
 	http.HandleFunc("/_ah/bounce", bounceHandler)
-	http.HandleFunc("/test-subject", testSubjectHandler)
+	http.HandleFunc("/test-email-thread", testEmailThreadHandler)
 }
 
 func initConfig() {
@@ -62,12 +62,14 @@ func initConfig() {
 type EmailThread struct {
 	CommitSHA string `datastore:",noindex"`
 	Subject   string `datastore:",noindex"`
+	MessageID string `datastore:",noindex"`
 }
 
-func createThread(sha string, subject string, c context.Context) {
+func createThread(sha string, subject string, messageId string, c context.Context) {
 	thread := EmailThread{
 		CommitSHA: sha,
 		Subject:   subject,
+		MessageID: messageId,
 	}
 	key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
 	_, err := datastore.Put(c, key, &thread)
@@ -78,21 +80,21 @@ func createThread(sha string, subject string, c context.Context) {
 	}
 }
 
-func getSubjectForCommit(sha string, c context.Context) string {
+func getEmailThreadForCommit(sha string, c context.Context) *EmailThread {
 	thread := new(EmailThread)
 	key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
 	err := datastore.Get(c, key, thread)
 	if err != nil {
 		log.Infof(c, "No thread found for SHA = %s", sha)
-		return ""
+		return nil
 	}
-	return thread.Subject
+	return thread
 }
 
 func hookHandler(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	eventType := r.Header.Get("X-Github-Event")
-	email, err := handlePayload(eventType, r.Body, c)
+	email, commits, err := handlePayload(eventType, r.Body, c)
 	if err != nil {
 		log.Errorf(c, "Error %s handling %s payload", err, eventType)
 		http.Error(w, "Error handling payload", http.StatusInternalServerError)
@@ -104,6 +106,11 @@ func hookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg, id, err := sendEmail(email, c)
+	if commits != nil {
+		for _, commit := range commits {
+			createThread(commit.SHA, email.Subject, id, c)
+		}
+	}
 	if err != nil {
 		log.Errorf(c, "Could not send mail: %s %s", err, msg)
 		http.Error(w, "Could not send mail", http.StatusInternalServerError)
@@ -118,6 +125,7 @@ type Email struct {
 	SenderUserName string
 	Subject string
 	HTMLBody string
+	Headers map [string]string
 }
 
 func sendEmail(email* Email, c context.Context) (msg string, id string, err error) {
@@ -136,6 +144,9 @@ func sendEmail(email* Email, c context.Context) (msg string, id string, err erro
 		config.Recipient,
 	)
 	message.SetHtml(email.HTMLBody)
+	for header, value := range email.Headers {
+		message.AddHeader(header, value)
+	}
 	msg, id, err = mg.Send(message)
 	if err != nil {
 		log.Errorf(c, "Failed to send message: %v, ID %v, %+v", err, id, msg)
@@ -145,27 +156,28 @@ func sendEmail(email* Email, c context.Context) (msg string, id string, err erro
 	return msg, id, err
 }
 
-func handlePayload(eventType string, payloadReader io.Reader, c context.Context) (*Email, error) {
+func handlePayload(eventType string, payloadReader io.Reader, c context.Context) (*Email, []DisplayCommit, error) {
 	decoder := json.NewDecoder(payloadReader)
 	if eventType == "push" {
 		var payload PushPayload
 		err := decoder.Decode(&payload)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		return handlePushPayload(payload, c)
 	} else if eventType == "commit_comment" {
 		var payload CommitCommentPayload
 		err := decoder.Decode(&payload)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return handleCommitCommentPayload(payload, c)
+		email, err := handleCommitCommentPayload(payload, c)
+		return email, nil, err
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
-func handlePushPayload(payload PushPayload, c context.Context) (*Email, error) {
+func handlePushPayload(payload PushPayload, c context.Context) (*Email, []DisplayCommit, error) {
 	// TODO: allow location to be customized
 	location, _ := time.LoadLocation("America/Los_Angeles")
 
@@ -193,7 +205,7 @@ func handlePushPayload(payload PushPayload, c context.Context) (*Email, error) {
 	}
 	var mailHtml bytes.Buffer
 	if err := templates["push"].Execute(&mailHtml, data); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	senderUserName := *payload.Pusher.Name
@@ -215,17 +227,13 @@ func handlePushPayload(payload PushPayload, c context.Context) (*Email, error) {
 	subjectCommit := displayCommits[0]
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
-	for _, commit := range displayCommits {
-		createThread(commit.SHA, subject, c)
-	}
-
 	message := &Email{
 		SenderName: senderName,
 		SenderUserName: senderUserName,
 		Subject:  subject,
 		HTMLBody: mailHtml.String(),
 	}
-	return message, nil
+	return message, displayCommits, nil
 }
 
 func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context) (*Email, error) {
@@ -261,9 +269,12 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 	senderUserName := *payload.Sender.Login
 	senderName := senderUserName
 
-	subject := getSubjectForCommit(commitSHA, c)
-	if subject == "" {
-		subject = fmt.Sprintf("[%s] %s", *payload.Repo.FullName, commitShortSHA)
+	thread := getEmailThreadForCommit(commitSHA, c)
+	subject := fmt.Sprintf("[%s] %s", *payload.Repo.FullName, commitShortSHA)
+	messageId := ""
+	if thread != nil {
+		subject = thread.Subject
+		messageId = thread.MessageID
 	}
 	// We don't control the message ID, but hopefully subject-basic threading
 	// wil work.
@@ -274,6 +285,9 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 		SenderUserName: senderUserName,
 		Subject: subject,
 		HTMLBody: mailHtml.String(),
+		Headers: map [string]string {
+			"In-Reply-To": messageId,
+		},
 	}
 	return message, nil
 }
@@ -288,7 +302,7 @@ func hookTestHarnessHandler(w http.ResponseWriter, r *http.Request) {
 		payload := r.FormValue("payload")
 		c := appengine.NewContext(r)
 
-		message, err := handlePayload(eventType, strings.NewReader(payload), c)
+		message, _, err := handlePayload(eventType, strings.NewReader(payload), c)
 		var data = map[string]interface{}{
 			"EventType":  eventType,
 			"Payload":    payload,
@@ -310,7 +324,7 @@ func bounceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func testSubjectHandler(w http.ResponseWriter, r *http.Request) {
+func testEmailThreadHandler(w http.ResponseWriter, r *http.Request) {
 	if !appengine.IsDevAppServer() {
 		http.Error(w, "", http.StatusMethodNotAllowed)
 		return
@@ -322,8 +336,12 @@ func testSubjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := appengine.NewContext(r)
-	subject := getSubjectForCommit(sha[0], c)
-	fmt.Fprintf(w, "%s\n", subject)
+	thread := getEmailThreadForCommit(sha[0], c)
+	if thread == nil {
+		http.Error(w, "No thread found", http.StatusInternalServerError)
+	}
+	fmt.Fprintf(w, "Subject: %s\n", thread.Subject)
+	fmt.Fprintf(w, "MessageID: %s\n", thread.MessageID)
 }
 
 func testMailSendHandler(w http.ResponseWriter, r *http.Request) {
