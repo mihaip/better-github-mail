@@ -66,13 +66,18 @@ type EmailThread struct {
 }
 
 func createThread(sha string, subject string, messageId string, c context.Context) {
-	thread := EmailThread{
-		CommitSHA: sha,
-		Subject:   subject,
-		MessageID: messageId,
-	}
 	key := datastore.NewKey(c, "EmailThread", sha, 0, nil)
-	_, err := datastore.Put(c, key, &thread)
+	thread := new(EmailThread)
+	err := datastore.Get(c, key, thread)
+	if err == nil {
+		log.Infof(c, "Thread %s already exists for SHA = %s. Skipping.", thread.MessageID, sha)
+		return
+	}
+
+	thread.CommitSHA = sha
+	thread.Subject = subject
+	thread.MessageID = messageId
+	_, err = datastore.Put(c, key, thread)
 	if err != nil {
 		log.Errorf(c, "Error creating thread: %s", err)
 	} else {
