@@ -11,9 +11,11 @@
   {{if .Message}}
     <h2>Message</h2>
     <p>
-      <b>Sender:</b> {{.Message.Sender}}<br>
-      <b>To:</b> {{.Message.To}}<br>
+      <b>Sender:</b> {{.Message.SenderName}} (@{{.Message.SenderUserName}}) <br>
       <b>Subject:</b> {{.Message.Subject}}<br>
+      {{range $k, $v := .Message.Headers}}
+        <b>{{$k}}:</b> {{$v}}<br>
+      {{end}}
     </p>
 
     <p>

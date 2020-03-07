@@ -1,4 +1,4 @@
-package bettermail
+package main
 
 import (
 	"encoding/json"

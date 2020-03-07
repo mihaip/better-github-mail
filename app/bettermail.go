@@ -1,4 +1,4 @@
-package bettermail
+package main
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ type MailgunConfig struct {
 
 var config MailgunConfig
 
-func init() {
+func main() {
 	initConfig()
 	templates = loadTemplates()
 
@@ -41,6 +41,8 @@ func init() {
 	http.HandleFunc("/test-mail-send", testMailSendHandler)
 	http.HandleFunc("/_ah/bounce", bounceHandler)
 	http.HandleFunc("/test-email-thread", testEmailThreadHandler)
+
+	appengine.Main()
 }
 
 func initConfig() {
@@ -126,19 +128,18 @@ func hookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type Email struct {
-	SenderName string
+	SenderName     string
 	SenderUserName string
-	Subject string
-	HTMLBody string
-	Headers map [string]string
+	Subject        string
+	HTMLBody       string
+	Headers        map[string]string
 }
 
-func sendEmail(email* Email, c context.Context) (msg string, id string, err error) {
+func sendEmail(email *Email, c context.Context) (msg string, id string, err error) {
 	httpc := urlfetch.Client(c)
 	mg := mailgun.NewMailgun(
 		config.Domain,
 		config.APIKey,
-		config.PublicKey,
 	)
 	mg.SetClient(httpc)
 	sender := fmt.Sprintf("%s <%s@%s>", email.SenderName, email.SenderUserName, config.Domain)
@@ -152,7 +153,10 @@ func sendEmail(email* Email, c context.Context) (msg string, id string, err erro
 	for header, value := range email.Headers {
 		message.AddHeader(header, value)
 	}
-	msg, id, err = mg.Send(message)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	msg, id, err = mg.Send(ctx, message)
 	if err != nil {
 		log.Errorf(c, "Failed to send message: %v, ID %v, %+v", err, id, msg)
 	} else {
@@ -233,10 +237,10 @@ func handlePushPayload(payload PushPayload, c context.Context) (*Email, []Displa
 	subject := fmt.Sprintf("[%s] %s: %s", *payload.Repo.FullName, subjectCommit.ShortSHA, subjectCommit.Title)
 
 	message := &Email{
-		SenderName: senderName,
+		SenderName:     senderName,
 		SenderUserName: senderUserName,
-		Subject:  subject,
-		HTMLBody: mailHtml.String(),
+		Subject:        subject,
+		HTMLBody:       mailHtml.String(),
 	}
 	return message, displayCommits, nil
 }
@@ -286,11 +290,11 @@ func handleCommitCommentPayload(payload CommitCommentPayload, c context.Context)
 	subject = "Re: " + subject
 
 	message := &Email{
-		SenderName: senderName,
+		SenderName:     senderName,
 		SenderUserName: senderUserName,
-		Subject: subject,
-		HTMLBody: mailHtml.String(),
-		Headers: make(map [string]string),
+		Subject:        subject,
+		HTMLBody:       mailHtml.String(),
+		Headers:        make(map[string]string),
 	}
 	if len(messageId) > 0 {
 		message.Headers["In-Reply-To"] = messageId
@@ -358,16 +362,16 @@ func testMailSendHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		c := appengine.NewContext(r)
 		email := &Email{
-			SenderName:   r.FormValue("sender"),
-			SenderUserName:   r.FormValue("sender"),
-			Subject:  r.FormValue("subject"),
-			HTMLBody: r.FormValue("html_body"),
+			SenderName:     r.FormValue("sender"),
+			SenderUserName: r.FormValue("sender"),
+			Subject:        r.FormValue("subject"),
+			HTMLBody:       r.FormValue("html_body"),
 		}
 		_, id, err := sendEmail(email, c)
 		var data = map[string]interface{}{
 			"Message": email,
 			"SendErr": err,
-			"Id": id,
+			"Id":      id,
 		}
 		templates["test-mail-send"].Execute(w, data)
 		return

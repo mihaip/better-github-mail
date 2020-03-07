@@ -1,4 +1,4 @@
-package bettermail
+package main
 
 import (
 	"time"
@@ -89,9 +89,6 @@ type WebHookRepository struct {
 	Source           *github.Repository `json:"source,omitempty"`
 	Organization     *string            `json:"organization,omitempty"`
 	Permissions      *map[string]bool   `json:"permissions,omitempty"`
-
-	// Only provided when using RepositoriesService.Get while in preview
-	License *github.License `json:"license,omitempty"`
 
 	// Additional mutable fields when creating and editing a repository
 	Private      *bool `json:"private"`
